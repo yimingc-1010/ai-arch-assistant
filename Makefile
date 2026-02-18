@@ -1,4 +1,4 @@
-.PHONY: install-dev test test-core test-law dev-api dev-web clean
+.PHONY: install-dev install-rag test test-core test-law test-rag dev-api dev-web clean
 
 install-dev:
 	pip install -e packages/shared
@@ -14,13 +14,19 @@ install-core:
 	pip install -e packages/core
 	pip install -e cli
 
-test: test-core test-law
+install-rag:
+	pip install -e "packages/rag[all]"
+
+test: test-core test-law test-rag
 
 test-core:
 	pytest packages/core/tests -v
 
 test-law:
 	pytest packages/law/tests -v
+
+test-rag:
+	pytest packages/rag/tests -v
 
 dev-api:
 	uvicorn autocrawler_api.app:app --reload --port 8000

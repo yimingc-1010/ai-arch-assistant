@@ -16,6 +16,13 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(crawl.router)
 
+    # lawrag RAG routes (optional — only registered when lawrag is installed)
+    try:
+        from autocrawler_api.routes import rag
+        app.include_router(rag.router)
+    except ImportError:
+        pass
+
     return app
 
 

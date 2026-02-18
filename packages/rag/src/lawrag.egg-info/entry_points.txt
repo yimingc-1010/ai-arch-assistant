@@ -1,0 +1,2 @@
+[console_scripts]
+lawrag = lawrag.cli.main:main
