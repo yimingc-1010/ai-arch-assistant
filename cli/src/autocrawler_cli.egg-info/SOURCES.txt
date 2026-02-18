@@ -1,0 +1,9 @@
+pyproject.toml
+src/autocrawler_cli/__init__.py
+src/autocrawler_cli/main.py
+src/autocrawler_cli.egg-info/PKG-INFO
+src/autocrawler_cli.egg-info/SOURCES.txt
+src/autocrawler_cli.egg-info/dependency_links.txt
+src/autocrawler_cli.egg-info/entry_points.txt
+src/autocrawler_cli.egg-info/requires.txt
+src/autocrawler_cli.egg-info/top_level.txt

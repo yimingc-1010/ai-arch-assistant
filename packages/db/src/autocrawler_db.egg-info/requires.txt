@@ -1,0 +1,6 @@
+autocrawler-shared
+sqlalchemy>=2.0.0
+
+[dev]
+pytest>=7.0.0
+alembic>=1.12.0

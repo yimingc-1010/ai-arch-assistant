@@ -1,0 +1,6 @@
+autocrawler-core
+autocrawler-db
+apscheduler>=3.10.0
+
+[dev]
+pytest>=7.0.0

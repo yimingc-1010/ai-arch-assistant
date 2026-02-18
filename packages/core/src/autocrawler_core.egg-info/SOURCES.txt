@@ -1,0 +1,16 @@
+pyproject.toml
+src/autocrawler/__init__.py
+src/autocrawler/analyzer.py
+src/autocrawler/api_scraper.py
+src/autocrawler/crawler.py
+src/autocrawler/html_scraper.py
+src/autocrawler/registry.py
+src/autocrawler_core.egg-info/PKG-INFO
+src/autocrawler_core.egg-info/SOURCES.txt
+src/autocrawler_core.egg-info/dependency_links.txt
+src/autocrawler_core.egg-info/requires.txt
+src/autocrawler_core.egg-info/top_level.txt
+tests/test_analyzer.py
+tests/test_api_scraper.py
+tests/test_crawler.py
+tests/test_html_scraper.py

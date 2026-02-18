@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autocrawler-cli"
+version = "0.1.0"
+description = "CLI tool for autocrawler"
+requires-python = ">=3.10"
+dependencies = [
+    "autocrawler-core",
+]
+
+[project.optional-dependencies]
+law = ["autocrawler-law"]
+all = ["autocrawler-law"]
+dev = [
+    "pytest>=7.0.0",
+    "responses>=0.23.0",
+]
+
+[project.scripts]
+autocrawler = "autocrawler_cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

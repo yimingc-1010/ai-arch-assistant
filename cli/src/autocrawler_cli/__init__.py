@@ -1,0 +1,1 @@
+"""AutoCrawler CLI tool."""

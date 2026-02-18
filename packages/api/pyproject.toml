@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autocrawler-api"
+version = "0.1.0"
+description = "REST API backend for autocrawler"
+requires-python = ">=3.10"
+dependencies = [
+    "autocrawler-core",
+    "autocrawler-db",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "httpx>=0.25.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

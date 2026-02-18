@@ -1,0 +1,12 @@
+pyproject.toml
+src/autocrawler_law/__init__.py
+src/autocrawler_law/exporter.py
+src/autocrawler_law/plugin.py
+src/autocrawler_law/scrapers.py
+src/autocrawler_law.egg-info/PKG-INFO
+src/autocrawler_law.egg-info/SOURCES.txt
+src/autocrawler_law.egg-info/dependency_links.txt
+src/autocrawler_law.egg-info/requires.txt
+src/autocrawler_law.egg-info/top_level.txt
+tests/test_exporter.py
+tests/test_scrapers.py

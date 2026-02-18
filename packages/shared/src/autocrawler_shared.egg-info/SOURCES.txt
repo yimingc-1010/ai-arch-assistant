@@ -1,0 +1,10 @@
+pyproject.toml
+src/autocrawler_shared/__init__.py
+src/autocrawler_shared/config.py
+src/autocrawler_shared/types.py
+src/autocrawler_shared/utils.py
+src/autocrawler_shared.egg-info/PKG-INFO
+src/autocrawler_shared.egg-info/SOURCES.txt
+src/autocrawler_shared.egg-info/dependency_links.txt
+src/autocrawler_shared.egg-info/requires.txt
+src/autocrawler_shared.egg-info/top_level.txt
