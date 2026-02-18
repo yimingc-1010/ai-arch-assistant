@@ -113,6 +113,10 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
+    # Load .env before parsing args so API keys are available
+    from lawrag.config import load_dotenv
+    load_dotenv()
+
     parser = argparse.ArgumentParser(
         prog="lawrag",
         description="RAG system for Traditional Chinese law regulations",

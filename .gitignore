@@ -1,0 +1,23 @@
+# 環境變數（絕對不能 commit）
+.env
+
+# ChromaDB 資料
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+*.egg
+
+# Node
+node_modules/
+.next/
+
+# IDE
+.vscode/
+.idea/
+*.swp

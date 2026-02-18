@@ -11,7 +11,7 @@ from lawrag.pdf.chunker import Chunk
 
 
 # The global index collection name
-_INDEX_COLLECTION = "__lawrag_index__"
+_INDEX_COLLECTION = "lawrag.index"
 
 
 def _law_collection_name(law_name: str) -> str:
