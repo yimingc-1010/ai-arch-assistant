@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
@@ -15,10 +15,14 @@ _INDEX_COLLECTION = "lawrag.index"
 
 
 def _law_collection_name(law_name: str) -> str:
-    """Map a law name to a safe ChromaDB collection name."""
-    # ChromaDB supports UTF-8 names; we still sanitise edge cases.
-    safe = law_name.replace(" ", "_").replace("/", "_").replace("\\", "_")
-    return f"law_{safe}"
+    """Map a law name to a ChromaDB-safe collection name.
+
+    ChromaDB only allows [a-zA-Z0-9._-], starting/ending with [a-zA-Z0-9].
+    We use a short SHA256 hash so any law name (including Chinese) maps safely.
+    Format: law-<8-char-hex>  e.g. law-3f2a1b4c
+    """
+    digest = hashlib.sha256(law_name.encode()).hexdigest()[:8]
+    return f"law-{digest}"
 
 
 class LawChromaStore:
@@ -110,8 +114,10 @@ class LawChromaStore:
         chunk_count: int,
         ingested_at: str,
     ) -> None:
+        # Use hash as id (ChromaDB ids must be ASCII-safe strings)
+        law_id = hashlib.sha256(law_name.encode()).hexdigest()[:16]
         self._index.upsert(
-            ids=[law_name],
+            ids=[law_id],
             documents=[law_name],
             metadatas=[
                 {
