@@ -4,9 +4,10 @@ Version: 0.1.0
 Summary: REST API backend for autocrawler
 Requires-Python: >=3.10
 Requires-Dist: autocrawler-core
-Requires-Dist: autocrawler-db
 Requires-Dist: fastapi>=0.104.0
 Requires-Dist: uvicorn>=0.24.0
+Requires-Dist: aiofiles>=23.0.0
+Requires-Dist: python-multipart>=0.0.6
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: httpx>=0.25.0; extra == "dev"

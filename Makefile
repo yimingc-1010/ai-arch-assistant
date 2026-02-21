@@ -1,4 +1,4 @@
-.PHONY: install-dev install-core install-rag test test-core test-law test-rag dev-api clean
+.PHONY: install-dev install-core install-rag install-web test test-core test-law test-rag dev-api dev-web build-web clean
 
 install-dev:
 	pip install -e packages/core
@@ -13,6 +13,9 @@ install-core:
 install-rag:
 	pip install -e "packages/rag[all]"
 
+install-web:
+	cd apps/web && npm install
+
 test: test-core test-law test-rag
 
 test-core:
@@ -26,6 +29,12 @@ test-rag:
 
 dev-api:
 	uvicorn autocrawler_api.app:app --reload --port 8000
+
+dev-web:
+	cd apps/web && npm run dev
+
+build-web:
+	cd apps/web && npm run build
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

@@ -1,12 +1,14 @@
 pyproject.toml
 src/autocrawler_api/__init__.py
 src/autocrawler_api/app.py
-src/autocrawler_api/deps.py
+src/autocrawler_api/crawl_ingester.py
+src/autocrawler_api/tasks.py
 src/autocrawler_api.egg-info/PKG-INFO
 src/autocrawler_api.egg-info/SOURCES.txt
 src/autocrawler_api.egg-info/dependency_links.txt
 src/autocrawler_api.egg-info/requires.txt
 src/autocrawler_api.egg-info/top_level.txt
 src/autocrawler_api/routes/__init__.py
-src/autocrawler_api/routes/crawl.py
+src/autocrawler_api/routes/admin.py
 src/autocrawler_api/routes/health.py
+src/autocrawler_api/routes/rag.py
