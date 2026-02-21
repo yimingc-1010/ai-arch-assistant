@@ -3,8 +3,9 @@ import PDFUpload from './components/PDFUpload'
 import URLCrawl from './components/URLCrawl'
 import DocumentLibrary from './components/DocumentLibrary'
 import TaskProgress from './components/TaskProgress'
+import LawQuery from './components/LawQuery'
 
-type Tab = 'pdf' | 'crawl' | 'docs'
+type Tab = 'query' | 'pdf' | 'crawl' | 'docs'
 
 interface QueuedTask {
   id: string
@@ -12,13 +13,14 @@ interface QueuedTask {
 }
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'query', label: '法規問答' },
   { key: 'pdf', label: 'PDF 匯入' },
   { key: 'crawl', label: 'URL 爬蟲' },
   { key: 'docs', label: '文件庫' },
 ]
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('pdf')
+  const [activeTab, setActiveTab] = useState<Tab>('query')
   const [taskQueue, setTaskQueue] = useState<QueuedTask[]>([])
 
   const handleTaskCreated = (taskId: string, label: string) => {
@@ -60,15 +62,10 @@ export default function App() {
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {activeTab === 'pdf' && (
-          <PDFUpload onTaskCreated={handleTaskCreated} />
-        )}
-        {activeTab === 'crawl' && (
-          <URLCrawl onTaskCreated={handleTaskCreated} />
-        )}
-        {activeTab === 'docs' && (
-          <DocumentLibrary />
-        )}
+        {activeTab === 'query' && <LawQuery />}
+        {activeTab === 'pdf' && <PDFUpload onTaskCreated={handleTaskCreated} />}
+        {activeTab === 'crawl' && <URLCrawl onTaskCreated={handleTaskCreated} />}
+        {activeTab === 'docs' && <DocumentLibrary />}
       </main>
 
       {/* Fixed bottom task progress drawer */}

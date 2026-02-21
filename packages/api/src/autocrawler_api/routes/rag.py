@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import tempfile
 from pathlib import Path
 from typing import List, Optional
 
 try:
     from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import JSONResponse, StreamingResponse
     from pydantic import BaseModel
 except ImportError as e:
     raise ImportError("fastapi and pydantic are required") from e
@@ -151,3 +153,115 @@ def list_documents():
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return {"documents": documents, "count": len(documents)}
+
+
+# ---------------------------------------------------------------------------
+# POST /rag/query/stream  — SSE streaming answer
+# ---------------------------------------------------------------------------
+
+# Same system prompt as Retriever (imported to stay DRY)
+_SYSTEM_PROMPT = """你是一位專業的法律助理，專門解答關於中華民國法規的問題。
+請根據以下提供的法條內容來回答問題。
+- 回答時請引用相關法條（例如：依建築法第30條）
+- 如果提供的法條不足以回答問題，請明確說明
+- 請使用繁體中文回答"""
+
+_STREAM_MODEL = "claude-sonnet-4-6"
+
+
+@router.post("/query/stream", summary="Stream a legal question answer via SSE")
+async def stream_query_rag(req: QueryRequest):
+    """Query the RAG system and stream the LLM answer token by token.
+
+    SSE event types:
+    - ``{"type": "sources", "sources": [...], "retrieved_chunk_count": N}``
+    - ``{"type": "token",   "text": "..."}``
+    - ``{"type": "done",    "model": "...", "provider": "..."}``
+    - ``{"type": "error",   "message": "..."}``
+    """
+    _require_lawrag()
+
+    async def generate():
+        try:
+            loop = asyncio.get_running_loop()
+
+            # ------------------------------------------------------------------
+            # Step 1+2: embed query + retrieve chunks (blocking → thread)
+            # ------------------------------------------------------------------
+            def _retrieve():
+                store = _get_store()
+                embedder = get_embedding_provider(req.embedding_provider)
+                query_vec = embedder.embed([req.question], input_type="query")[0]
+                return store.query(
+                    query_vector=query_vec,
+                    law_names=req.law_names,
+                    n_results=req.n_results,
+                )
+
+            results = await loop.run_in_executor(None, _retrieve)
+
+            # ------------------------------------------------------------------
+            # Step 3: emit sources event
+            # ------------------------------------------------------------------
+            sources = [
+                {
+                    "law_name": r.get("law_name", ""),
+                    "article_number": r.get("article_number", ""),
+                    "chapter": r.get("chapter", ""),
+                    "text": r.get("text", ""),
+                    "score": float(r.get("score", 0.0)),
+                    "page": int(r.get("page_start", 1)),
+                }
+                for r in results
+            ]
+            yield f"data: {json.dumps({'type': 'sources', 'sources': sources, 'retrieved_chunk_count': len(results)})}\n\n"
+
+            # ------------------------------------------------------------------
+            # Step 4: build context (same logic as Retriever.query)
+            # ------------------------------------------------------------------
+            context_parts: List[str] = []
+            for r in results:
+                header = f"【{r['law_name']}】"
+                if r.get("chapter"):
+                    header += f" {r['chapter']}"
+                if r.get("article_number"):
+                    header += f" {r['article_number']}"
+                context_parts.append(f"{header}\n{r['text']}")
+
+            context = "\n\n---\n\n".join(context_parts)
+            user_message = (
+                f"以下是相關法條內容：\n\n{context}\n\n---\n\n問題：{req.question}"
+            )
+
+            # ------------------------------------------------------------------
+            # Step 5: stream LLM tokens with AsyncAnthropic
+            # ------------------------------------------------------------------
+            try:
+                import anthropic as _anthropic
+            except ImportError as exc:
+                raise ImportError("anthropic package is required") from exc
+
+            client = _anthropic.AsyncAnthropic(
+                api_key=lawrag_config.get_anthropic_api_key()
+            )
+            async with client.messages.stream(
+                model=_STREAM_MODEL,
+                max_tokens=2048,
+                temperature=0.0,
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_message}],
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'done', 'model': _STREAM_MODEL, 'provider': 'anthropic'})}\n\n"
+
+        except Exception as exc:
+            import traceback
+            yield f"data: {json.dumps({'type': 'error', 'message': str(exc), 'traceback': traceback.format_exc()})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

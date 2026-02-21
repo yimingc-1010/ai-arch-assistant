@@ -1,4 +1,4 @@
-.PHONY: install-dev install-core install-rag install-web test test-core test-law test-rag dev-api dev-web build-web clean
+.PHONY: install-dev install-core install-rag install-web install-lawchat test test-core test-law test-rag dev-api dev-web build-web dev-lawchat build-lawchat clean
 
 install-dev:
 	pip install -e packages/core
@@ -15,6 +15,9 @@ install-rag:
 
 install-web:
 	cd apps/web && npm install
+
+install-lawchat:
+	cd apps/lawchat && npm install
 
 test: test-core test-law test-rag
 
@@ -35,6 +38,12 @@ dev-web:
 
 build-web:
 	cd apps/web && npm run build
+
+dev-lawchat:
+	cd apps/lawchat && npm run dev
+
+build-lawchat:
+	cd apps/lawchat && npm run build
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

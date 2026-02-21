@@ -97,6 +97,66 @@ export async function fetchDocuments(): Promise<{ documents: Document[]; count: 
 // SSE hook
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Streaming RAG query
+// ---------------------------------------------------------------------------
+
+export interface QuerySource {
+  law_name: string
+  article_number: string
+  chapter: string
+  text: string
+  score: number
+  page: number
+}
+
+export type StreamEvent =
+  | { type: 'sources'; sources: QuerySource[]; retrieved_chunk_count: number }
+  | { type: 'token'; text: string }
+  | { type: 'done'; model: string; provider: string }
+  | { type: 'error'; message: string; traceback?: string }
+
+export interface QueryRequest {
+  question: string
+  law_names?: string[] | null
+  n_results?: number
+  llm_provider?: string
+  embedding_provider?: string
+}
+
+export async function* streamQuery(req: QueryRequest): AsyncGenerator<StreamEvent> {
+  const response = await fetch('/rag/query/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(err.detail ?? 'Query failed')
+  }
+
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      try {
+        yield JSON.parse(line.slice(6)) as StreamEvent
+      } catch {
+        // ignore malformed line
+      }
+    }
+  }
+}
+
 export function useTaskStream(
   taskId: string | null,
   onUpdate: (task: TaskData) => void,
