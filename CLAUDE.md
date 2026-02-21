@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AutoCrawler is a multi-package Python monorepo for automatic web crawling. It selects between HTML parsing and API fetching strategies based on URL analysis. The project includes a core crawling engine, law-specific scraper plugin, CLI tool, and scaffolds for a REST API, database layer, scheduler, and Next.js frontend.
+AutoCrawler is a multi-package Python monorepo for automatic web crawling. It selects between HTML parsing and API fetching strategies based on URL analysis. The project includes a core crawling engine, law-specific scraper plugin, CLI tool, a REST API, and a RAG system for law PDFs.
 
 ## Commands
 
@@ -15,12 +15,16 @@ make install-dev
 # Install core only (no law plugin)
 make install-core
 
+# Install RAG system
+make install-rag
+
 # Run all tests
 make test
 
 # Run tests for a specific package
 make test-core
 make test-law
+make test-rag
 
 # Run a single test
 pytest packages/core/tests/test_analyzer.py::TestURLAnalyzer::test_api_pattern_detection -v
@@ -30,11 +34,13 @@ autocrawler https://example.com -v
 autocrawler https://example.com -s html       # force HTML strategy
 autocrawler https://example.com -o out.json   # save to file
 
-# Start API dev server (requires packages/api deps)
-make dev-api
+# lawrag CLI
+lawrag ingest 建築法.pdf --law-name 建築法 -v
+lawrag query "申請建造執照需要哪些文件？" --law 建築法
+lawrag list
 
-# Start Next.js frontend
-make dev-web
+# Start API dev server
+make dev-api
 
 # Clean build artifacts
 make clean
@@ -45,7 +51,6 @@ make clean
 ```
 ai-arch-assistant/
 ├── packages/
-│   ├── shared/          # Shared types, config, utilities (autocrawler-shared)
 │   ├── core/            # Core crawling engine (autocrawler-core)
 │   │   └── src/autocrawler/
 │   │       ├── registry.py      # Strategy plugin registration
@@ -58,12 +63,20 @@ ai-arch-assistant/
 │   │       ├── scrapers.py      # MojLawScraper, ArkitekiScraper
 │   │       ├── exporter.py      # CSV export
 │   │       └── plugin.py        # Registers law strategies with core
-│   ├── db/              # Database layer scaffold (autocrawler-db)
-│   ├── api/             # FastAPI REST API scaffold (autocrawler-api)
-│   └── scheduler/       # Background job scheduler scaffold (autocrawler-scheduler)
+│   ├── rag/             # RAG system for law PDFs (lawrag)
+│   │   └── src/lawrag/
+│   │       ├── config.py        # Env var config (LAWRAG_*)
+│   │       ├── providers/       # Embedding & LLM providers (Voyage, Anthropic, OpenAI)
+│   │       ├── pdf/             # PDF extraction & article-aware chunking
+│   │       ├── store/           # ChromaDB vector store
+│   │       ├── pipeline/        # Ingestor & Retriever
+│   │       └── cli/             # lawrag CLI
+│   └── api/             # FastAPI REST API (autocrawler-api)
+│       └── src/autocrawler_api/
+│           └── routes/
+│               ├── health.py    # GET /health
+│               └── rag.py       # POST /rag/ingest, POST /rag/query, GET /rag/documents
 ├── cli/                 # CLI tool (autocrawler-cli)
-├── apps/
-│   └── web/             # Next.js frontend scaffold
 └── Makefile             # Dev commands
 ```
 
@@ -80,14 +93,21 @@ ai-arch-assistant/
 
 ### Package Dependencies
 ```
-shared ← core ← law
-              ← cli
-              ← api ← db
-              ← scheduler ← db
+core ← law
+     ← cli
+     ← api (lawrag optional)
+rag  (independent)
 ```
+
+### RAG System (lawrag)
+- **Embedding**: Voyage AI `voyage-law-2` (asymmetric: `input_type="document"` for ingest, `input_type="query"` for retrieval)
+- **LLM**: Anthropic `claude-sonnet-4-6`
+- **Vector DB**: ChromaDB (local persistent), per-law collection with SHA256-hashed names
+- **PDF chunking**: article-aware (`第X條`) primary strategy, sliding-window fallback
 
 ## Testing
 
 Tests use `responses` library to mock HTTP requests. Tests are co-located with packages:
 - `packages/core/tests/` — TestURLAnalyzer, TestHTMLScraper, TestAPIScraper, TestAutoCrawler, TestErrorHandling
 - `packages/law/tests/` — TestMojLawScraper, TestArkitekiScraper, TestLawExporter, TestLawSiteDetection
+- `packages/rag/tests/` — TestChunker, TestReader, TestStore, TestIngestor, TestRetriever, TestProviders

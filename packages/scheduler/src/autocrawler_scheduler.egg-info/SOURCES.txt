@@ -1,9 +1,0 @@
-pyproject.toml
-src/autocrawler_scheduler/__init__.py
-src/autocrawler_scheduler/tasks.py
-src/autocrawler_scheduler/worker.py
-src/autocrawler_scheduler.egg-info/PKG-INFO
-src/autocrawler_scheduler.egg-info/SOURCES.txt
-src/autocrawler_scheduler.egg-info/dependency_links.txt
-src/autocrawler_scheduler.egg-info/requires.txt
-src/autocrawler_scheduler.egg-info/top_level.txt

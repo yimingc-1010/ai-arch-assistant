@@ -7,14 +7,14 @@ from typing import Dict, Any, Optional, List
 from urllib.parse import urljoin, urlparse, parse_qs
 import requests
 
+from autocrawler._http import make_session
+
 
 class APIScraper:
     """透過 API/Fetch 方式取得資料"""
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        self.session = make_session({
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.5',
         })
@@ -196,60 +196,6 @@ class APIScraper:
                 links[match.group(2)] = match.group(1)
 
         return links
-
-    def discover_api(self, base_url: str) -> Dict[str, Any]:
-        """
-        嘗試自動發現 API 端點
-
-        Args:
-            base_url: 基礎 URL
-
-        Returns:
-            Dict containing discovered API information
-        """
-        result = {
-            'base_url': base_url,
-            'discovered_endpoints': [],
-            'api_version': None,
-        }
-
-        parsed = urlparse(base_url)
-        base = f"{parsed.scheme}://{parsed.netloc}"
-
-        # 常見的 API 路徑
-        api_paths = [
-            '/api',
-            '/api/v1',
-            '/api/v2',
-            '/api/v3',
-            '/v1',
-            '/v2',
-            '/graphql',
-            '/rest',
-        ]
-
-        for path in api_paths:
-            try:
-                test_url = base + path
-                response = self.session.get(test_url, timeout=5)
-                if response.status_code in [200, 201]:
-                    content_type = response.headers.get('Content-Type', '').lower()
-                    if 'json' in content_type or 'xml' in content_type:
-                        result['discovered_endpoints'].append({
-                            'url': test_url,
-                            'status': response.status_code,
-                            'content_type': content_type,
-                        })
-
-                        # 嘗試偵測版本
-                        version_match = re.search(r'/v(\d+)', path)
-                        if version_match:
-                            result['api_version'] = f'v{version_match.group(1)}'
-
-            except requests.RequestException:
-                continue
-
-        return result
 
 
 def scrape_api(url: str, config: Optional[Dict] = None) -> Dict[str, Any]:

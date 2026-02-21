@@ -9,7 +9,6 @@ description = "REST API backend for autocrawler"
 requires-python = ">=3.10"
 dependencies = [
     "autocrawler-core",
-    "autocrawler-db",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
 ]

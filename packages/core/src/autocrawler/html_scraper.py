@@ -4,17 +4,16 @@ HTML 結構解析爬蟲
 import re
 from typing import Dict, Any, List, Optional
 from urllib.parse import urljoin, urlparse
-import requests
 from bs4 import BeautifulSoup
+
+from autocrawler._http import make_session, fix_encoding
 
 
 class HTMLScraper:
     """透過 HTML 結構解析網頁內容"""
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        self.session = make_session({
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
         })
@@ -44,9 +43,7 @@ class HTMLScraper:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
 
-            # 自動偵測編碼
-            if response.encoding == 'ISO-8859-1':
-                response.encoding = response.apparent_encoding
+            fix_encoding(response)
 
             soup = BeautifulSoup(response.text, 'lxml')
 

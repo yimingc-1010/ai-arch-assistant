@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from autocrawler_api.routes import health, crawl
+from autocrawler_api.routes import health
 
 
 def create_app() -> FastAPI:
@@ -14,7 +14,6 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
-    app.include_router(crawl.router)
 
     # lawrag RAG routes (optional — only registered when lawrag is installed)
     try:

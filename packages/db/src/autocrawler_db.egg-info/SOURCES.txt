@@ -1,9 +1,0 @@
-pyproject.toml
-src/autocrawler_db/__init__.py
-src/autocrawler_db/models.py
-src/autocrawler_db/repository.py
-src/autocrawler_db.egg-info/PKG-INFO
-src/autocrawler_db.egg-info/SOURCES.txt
-src/autocrawler_db.egg-info/dependency_links.txt
-src/autocrawler_db.egg-info/requires.txt
-src/autocrawler_db.egg-info/top_level.txt

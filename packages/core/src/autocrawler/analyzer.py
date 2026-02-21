@@ -7,6 +7,7 @@ from typing import Dict, Any
 import requests
 
 from autocrawler.registry import detect_strategy
+from autocrawler._http import make_session
 
 
 class URLAnalyzer:
@@ -47,10 +48,7 @@ class URLAnalyzer:
     ]
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        })
+        self.session = make_session()
 
     def analyze(self, url: str) -> Dict[str, Any]:
         """

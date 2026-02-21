@@ -9,7 +9,6 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from autocrawler.registry import register_strategy
-from autocrawler_law.scrapers import get_law_scraper
 
 
 # Law site domain -> strategy name mapping
@@ -38,11 +37,6 @@ def detect_law_site(url: str) -> Optional[str]:
                 return strategy
 
     return None
-
-
-def _law_scraper_factory(url: str):
-    """Factory that returns the appropriate law scraper for a URL."""
-    return get_law_scraper(url)
 
 
 def register_law_strategies() -> None:

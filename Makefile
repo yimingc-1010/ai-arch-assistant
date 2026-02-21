@@ -1,16 +1,12 @@
-.PHONY: install-dev install-rag test test-core test-law test-rag dev-api dev-web clean
+.PHONY: install-dev install-core install-rag test test-core test-law test-rag dev-api clean
 
 install-dev:
-	pip install -e packages/shared
 	pip install -e packages/core
 	pip install -e packages/law
 	pip install -e "cli[all]"
-	pip install -e packages/db 2>/dev/null || true
 	pip install -e packages/api 2>/dev/null || true
-	pip install -e packages/scheduler 2>/dev/null || true
 
 install-core:
-	pip install -e packages/shared
 	pip install -e packages/core
 	pip install -e cli
 
@@ -30,9 +26,6 @@ test-rag:
 
 dev-api:
 	uvicorn autocrawler_api.app:app --reload --port 8000
-
-dev-web:
-	cd apps/web && npm run dev
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
