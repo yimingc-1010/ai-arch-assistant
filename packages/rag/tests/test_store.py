@@ -62,6 +62,79 @@ class TestLawChromaStore:
         assert len(call_kwargs["embeddings"]) == 3
         assert len(call_kwargs["documents"]) == 3
 
+    def test_upsert_chunks_stores_last_modified_in_chunk_metadata(self):
+        mock_client = MagicMock()
+        mock_collection = MagicMock()
+        mock_index = MagicMock()
+        mock_index.count.return_value = 0
+        mock_client.get_or_create_collection.side_effect = [mock_index, mock_collection]
+
+        with patch("chromadb.PersistentClient", return_value=mock_client):
+            from lawrag.store.chroma import LawChromaStore
+            store = LawChromaStore(persist_dir="/tmp/test_chroma")
+
+        chunks = [_make_chunk("建築法", "第1條", "本法為建築法。", 0)]
+        vectors = [[0.1] * 4]
+
+        store.upsert_chunks(
+            chunks, vectors,
+            embedding_model="voyage",
+            last_modified="民國 111 年 05 月 11 日",
+        )
+
+        call_kwargs = mock_collection.upsert.call_args[1]
+        meta = call_kwargs["metadatas"][0]
+        assert meta["last_modified"] == "民國 111 年 05 月 11 日"
+
+    def test_upsert_chunks_last_modified_none_stored_as_sentinel(self):
+        mock_client = MagicMock()
+        mock_collection = MagicMock()
+        mock_index = MagicMock()
+        mock_index.count.return_value = 0
+        mock_client.get_or_create_collection.side_effect = [mock_index, mock_collection]
+
+        with patch("chromadb.PersistentClient", return_value=mock_client):
+            from lawrag.store.chroma import LawChromaStore
+            store = LawChromaStore(persist_dir="/tmp/test_chroma")
+
+        chunks = [_make_chunk("建築法", "第1條", "本法為建築法。", 0)]
+        vectors = [[0.1] * 4]
+
+        store.upsert_chunks(chunks, vectors, embedding_model="voyage")  # no last_modified
+
+        call_kwargs = mock_collection.upsert.call_args[1]
+        meta = call_kwargs["metadatas"][0]
+        # None is stored as empty string sentinel for ChromaDB compatibility
+        assert meta["last_modified"] == ""
+
+    def test_upsert_chunks_stores_content_hash_and_source_in_index(self):
+        mock_client = MagicMock()
+        mock_collection = MagicMock()
+        mock_index = MagicMock()
+        mock_index.count.return_value = 0
+        mock_client.get_or_create_collection.side_effect = [mock_index, mock_collection]
+
+        with patch("chromadb.PersistentClient", return_value=mock_client):
+            from lawrag.store.chroma import LawChromaStore
+            store = LawChromaStore(persist_dir="/tmp/test_chroma")
+
+        chunks = [_make_chunk("建築法", "第1條", "本法為建築法。", 0)]
+        vectors = [[0.1] * 4]
+
+        store.upsert_chunks(
+            chunks, vectors,
+            embedding_model="voyage",
+            last_modified="民國 111 年 05 月 11 日",
+            content_hash="abc123",
+            last_modified_source="page",
+        )
+
+        index_upsert_kwargs = mock_index.upsert.call_args[1]
+        index_meta = index_upsert_kwargs["metadatas"][0]
+        assert index_meta["last_modified"] == "民國 111 年 05 月 11 日"
+        assert index_meta["content_hash"] == "abc123"
+        assert index_meta["last_modified_source"] == "page"
+
     def test_upsert_empty_chunks_is_noop(self):
         mock_client = MagicMock()
         mock_index = MagicMock()
@@ -118,3 +191,68 @@ class TestLawChromaStore:
 
         results = store.query([0.1] * 4, law_names=[], n_results=5)
         assert results == []
+
+    def test_get_index_metadata_returns_none_when_not_ingested(self):
+        mock_client = MagicMock()
+        mock_index = MagicMock()
+        mock_index.count.return_value = 0
+        mock_index.get.return_value = {"metadatas": []}
+        mock_client.get_or_create_collection.return_value = mock_index
+
+        with patch("chromadb.PersistentClient", return_value=mock_client):
+            from lawrag.store.chroma import LawChromaStore
+            store = LawChromaStore(persist_dir="/tmp/test_chroma")
+
+        result = store.get_index_metadata("建築法")
+        assert result is None
+
+    def test_get_index_metadata_returns_dict_when_ingested(self):
+        mock_client = MagicMock()
+        mock_index = MagicMock()
+        mock_index.count.return_value = 1
+        mock_index.get.return_value = {
+            "metadatas": [{
+                "law_name": "建築法",
+                "chunk_count": 5,
+                "ingested_at": "2024-01-01T00:00:00+00:00",
+                "last_modified": "民國 111 年 05 月 11 日",
+                "content_hash": "abc123",
+                "last_modified_source": "page",
+            }]
+        }
+        mock_client.get_or_create_collection.return_value = mock_index
+
+        with patch("chromadb.PersistentClient", return_value=mock_client):
+            from lawrag.store.chroma import LawChromaStore
+            store = LawChromaStore(persist_dir="/tmp/test_chroma")
+
+        result = store.get_index_metadata("建築法")
+        assert result is not None
+        assert result["law_name"] == "建築法"
+        assert result["last_modified"] == "民國 111 年 05 月 11 日"
+        assert result["content_hash"] == "abc123"
+        assert result["last_modified_source"] == "page"
+
+    def test_get_index_metadata_normalises_sentinel_to_none(self):
+        mock_client = MagicMock()
+        mock_index = MagicMock()
+        mock_index.count.return_value = 1
+        mock_index.get.return_value = {
+            "metadatas": [{
+                "law_name": "建築法",
+                "chunk_count": 3,
+                "ingested_at": "2024-01-01T00:00:00+00:00",
+                "last_modified": "",   # sentinel for None
+                "content_hash": "",    # sentinel for None
+                "last_modified_source": "unknown",
+            }]
+        }
+        mock_client.get_or_create_collection.return_value = mock_index
+
+        with patch("chromadb.PersistentClient", return_value=mock_client):
+            from lawrag.store.chroma import LawChromaStore
+            store = LawChromaStore(persist_dir="/tmp/test_chroma")
+
+        result = store.get_index_metadata("建築法")
+        assert result["last_modified"] is None
+        assert result["content_hash"] is None

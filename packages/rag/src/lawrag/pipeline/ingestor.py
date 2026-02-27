@@ -58,14 +58,19 @@ class Ingestor:
         self,
         pdf_path: str | Path,
         law_name: Optional[str] = None,
+        last_modified: Optional[str] = None,
         verbose: bool = False,
     ) -> List[Chunk]:
         """Ingest a PDF file into the vector store.
 
         Args:
-            pdf_path:  Path to the PDF file.
-            law_name:  Override the inferred law name.
-            verbose:   Print progress messages.
+            pdf_path:      Path to the PDF file.
+            law_name:      Override the inferred law name.
+            last_modified: Known modification date string (e.g. from a metadata file).
+                           When None the index will record no date; sync can still detect
+                           changes via content-hash comparison if the law is later re-ingested
+                           from a web scrape.
+            verbose:       Print progress messages.
 
         Returns:
             List of Chunk objects that were stored.
@@ -99,7 +104,86 @@ class Ingestor:
                 print("[ingestor] No chunks produced; skipping upsert.")
             return []
 
-        # Embed in batches
+        return self._embed_and_store(
+            chunks=chunks,
+            last_modified=last_modified,
+            # PDF ingests don't produce a web-comparable article hash; leave None
+            # so the sync manager falls through to its conservative default on first run.
+            content_hash=None,
+            last_modified_source="page" if last_modified else "unknown",
+            verbose=verbose,
+        )
+
+    def ingest_text(
+        self,
+        text: str,
+        law_name: str,
+        source_file: str = "web",
+        last_modified: Optional[str] = None,
+        content_hash: Optional[str] = None,
+        last_modified_source: str = "unknown",
+        verbose: bool = False,
+    ) -> List[Chunk]:
+        """Ingest pre-extracted law text (e.g. from a web scrape) into the vector store.
+
+        This bypasses PDF extraction and is used by :class:`LawSyncManager` when
+        re-ingesting a law directly from its web source.
+
+        Args:
+            text:                 Full plain-text content of the law.
+            law_name:             Canonical name of the regulation.
+            source_file:          Identifier for the source (e.g. a URL or "web").
+            last_modified:        Modification date string from the source.
+            content_hash:         Pre-computed SHA-256 content hash (from article data).
+                                  When provided it is stored in the index for future
+                                  change-detection by the sync manager.
+            last_modified_source: How the date/hash was obtained.
+            verbose:              Print progress messages.
+
+        Returns:
+            List of Chunk objects that were stored.
+        """
+        if verbose:
+            print(f"[ingestor] Chunking text for {law_name!r}  |  Total chars: {len(text)}")
+
+        chunks = chunk_document(
+            full_text=text,
+            page_map={0: 1},
+            law_name=law_name,
+            source_file=source_file,
+        )
+
+        if verbose:
+            strategies = {c.strategy for c in chunks}
+            print(f"[ingestor] {len(chunks)} chunks produced  |  strategies: {strategies}")
+
+        if not chunks:
+            if verbose:
+                print("[ingestor] No chunks produced; skipping upsert.")
+            return []
+
+        return self._embed_and_store(
+            chunks=chunks,
+            last_modified=last_modified,
+            content_hash=content_hash,
+            last_modified_source=last_modified_source,
+            verbose=verbose,
+        )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _embed_and_store(
+        self,
+        chunks: List[Chunk],
+        last_modified: Optional[str],
+        content_hash: Optional[str],
+        last_modified_source: str,
+        verbose: bool,
+    ) -> List[Chunk]:
+        """Embed *chunks* and upsert them (plus metadata) into the store."""
+        law_name = chunks[0].law_name
         texts = [c.text for c in chunks]
         vectors: list = []
         for i in range(0, len(texts), _EMBED_BATCH_SIZE):
@@ -118,6 +202,9 @@ class Ingestor:
             chunks=chunks,
             vectors=vectors,
             embedding_model=self._embedder.provider_name,
+            last_modified=last_modified,
+            content_hash=content_hash,
+            last_modified_source=last_modified_source,
         )
 
         if verbose:

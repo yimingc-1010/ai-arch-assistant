@@ -9,6 +9,9 @@ from typing import List, Optional
 
 from lawrag.pdf.chunker import Chunk
 
+# Sentinel used to store None in ChromaDB metadata (which requires str/int/float/bool)
+_NONE_SENTINEL = ""
+
 
 # The global index collection name
 _INDEX_COLLECTION = "lawrag.index"
@@ -54,13 +57,20 @@ class LawChromaStore:
         chunks: List[Chunk],
         vectors: List[List[float]],
         embedding_model: str,
+        last_modified: Optional[str] = None,
+        content_hash: Optional[str] = None,
+        last_modified_source: str = "unknown",
     ) -> None:
         """Store chunks with their embeddings.
 
         Args:
-            chunks:          List of Chunk objects.
-            vectors:         Corresponding embedding vectors (same order).
-            embedding_model: Model name string stored in metadata.
+            chunks:               List of Chunk objects.
+            vectors:              Corresponding embedding vectors (same order).
+            embedding_model:      Model name string stored in metadata.
+            last_modified:        Source-provided modification date (ISO or ROC calendar string).
+            content_hash:         SHA256 hex digest of article content used for change detection.
+            last_modified_source: How the date was obtained: "page" | "http_header" |
+                                  "content_hash" | "unknown".
         """
         if not chunks:
             return
@@ -94,6 +104,7 @@ class LawChromaStore:
                     "page_end": chunk.page_end,
                     "embedding_model": embedding_model,
                     "ingested_at": ingested_at,
+                    "last_modified": last_modified or _NONE_SENTINEL,
                 }
             )
 
@@ -105,7 +116,15 @@ class LawChromaStore:
         )
 
         # Update global index
-        self._update_index(law_name, chunks[0].source_file, len(chunks), ingested_at)
+        self._update_index(
+            law_name,
+            chunks[0].source_file,
+            len(chunks),
+            ingested_at,
+            last_modified=last_modified,
+            content_hash=content_hash,
+            last_modified_source=last_modified_source,
+        )
 
     def _update_index(
         self,
@@ -113,6 +132,9 @@ class LawChromaStore:
         source_file: str,
         chunk_count: int,
         ingested_at: str,
+        last_modified: Optional[str] = None,
+        content_hash: Optional[str] = None,
+        last_modified_source: str = "unknown",
     ) -> None:
         # Use hash as id (ChromaDB ids must be ASCII-safe strings)
         law_id = hashlib.sha256(law_name.encode()).hexdigest()[:16]
@@ -125,6 +147,9 @@ class LawChromaStore:
                     "source_file": source_file,
                     "chunk_count": chunk_count,
                     "ingested_at": ingested_at,
+                    "last_modified": last_modified or _NONE_SENTINEL,
+                    "content_hash": content_hash or _NONE_SENTINEL,
+                    "last_modified_source": last_modified_source,
                 }
             ],
         )
@@ -213,3 +238,20 @@ class LawChromaStore:
         """Return names of all ingested law regulations."""
         docs = self.list_documents()
         return [d["law_name"] for d in docs]
+
+    def get_index_metadata(self, law_name: str) -> Optional[dict]:
+        """Return index metadata for a specific law, or None if not ingested.
+
+        Normalises sentinel empty strings back to None for optional fields
+        (last_modified, content_hash) so callers can use simple truthiness checks.
+        """
+        law_id = hashlib.sha256(law_name.encode()).hexdigest()[:16]
+        result = self._index.get(ids=[law_id], include=["metadatas"])
+        metadatas = result.get("metadatas") or []
+        if not metadatas:
+            return None
+        meta = dict(metadatas[0])
+        for field in ("last_modified", "content_hash"):
+            if meta.get(field) == _NONE_SENTINEL:
+                meta[field] = None
+        return meta
