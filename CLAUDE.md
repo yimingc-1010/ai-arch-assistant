@@ -39,8 +39,19 @@ lawrag ingest 建築法.pdf --law-name 建築法 -v
 lawrag query "申請建造執照需要哪些文件？" --law 建築法
 lawrag list
 
-# Start API dev server
+# Start all services (API + web + lawchat)
+make dev
+
+# Start backend only (API)
+make dev-backend
+
+# Start frontend only (web + lawchat)
+make dev-frontend
+
+# Start individual services
 make dev-api
+make dev-web
+make dev-lawchat
 
 # Clean build artifacts
 make clean

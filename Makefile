@@ -1,4 +1,4 @@
-.PHONY: install-dev install-core install-rag install-web install-lawchat test test-core test-law test-rag dev-api dev-web build-web dev-lawchat build-lawchat clean
+.PHONY: install-dev install-core install-rag install-web install-lawchat test test-core test-law test-rag dev dev-api dev-web build-web dev-lawchat build-lawchat dev-backend dev-frontend clean
 
 install-dev:
 	pip install -e packages/core
@@ -29,6 +29,24 @@ test-law:
 
 test-rag:
 	pytest packages/rag/tests -v
+
+dev:
+	@trap 'kill 0' INT; \
+	uvicorn autocrawler_api.app:app --reload --port 8000 & \
+	(cd apps/web && npm run dev) & \
+	(cd apps/lawchat && npm run dev) & \
+	wait
+
+dev-backend:
+	@trap 'kill 0' INT; \
+	uvicorn autocrawler_api.app:app --reload --port 8000 & \
+	wait
+
+dev-frontend:
+	@trap 'kill 0' INT; \
+	(cd apps/web && npm run dev) & \
+	(cd apps/lawchat && npm run dev) & \
+	wait
 
 dev-api:
 	uvicorn autocrawler_api.app:app --reload --port 8000
