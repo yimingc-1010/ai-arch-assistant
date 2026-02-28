@@ -7,7 +7,8 @@
 export async function POST(request: Request) {
   const body = await request.text()
 
-  const upstream = await fetch('http://localhost:8000/rag/query/stream', {
+  const apiBase = process.env.FASTAPI_URL ?? 'http://localhost:8000'
+  const upstream = await fetch(`${apiBase}/rag/query/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,

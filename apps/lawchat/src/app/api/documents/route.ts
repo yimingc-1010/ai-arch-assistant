@@ -2,7 +2,8 @@
  * Proxy GET /api/documents → FastAPI GET /rag/documents
  */
 export async function GET() {
-  const upstream = await fetch('http://localhost:8000/rag/documents', {
+  const apiBase = process.env.FASTAPI_URL ?? 'http://localhost:8000'
+  const upstream = await fetch(`${apiBase}/rag/documents`, {
     cache: 'no-store',
   })
 
