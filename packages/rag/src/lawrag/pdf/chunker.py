@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from lawrag.pdf.reader import get_page_for_offset
 
@@ -47,11 +47,43 @@ class Chunk:
     strategy: str           # "article" | "sliding_window"
     page_start: int
     page_end: int
+    law_type: str = "unknown"    # "母法" | "子法" | "解釋函令" | "自治條例" | "unknown"
+    jurisdiction: str = "全國"   # "全國" | "台北市" | "新北市" | "高雄市" | ...
 
     def __post_init__(self) -> None:
         if not self.chunk_id:
             key = f"{self.law_name}{self.article_number}{self.text[:64]}"
             self.chunk_id = hashlib.sha256(key.encode()).hexdigest()[:16]
+
+
+# ---------------------------------------------------------------------------
+# Law metadata inference
+# ---------------------------------------------------------------------------
+
+def _infer_law_type(law_name: str) -> str:
+    """Infer law hierarchy type from the law name."""
+    if any(k in law_name for k in ["施行細則", "施行規則", "辦法", "準則"]):
+        return "子法"
+    if any(k in law_name for k in ["解釋", "函令", "令函"]):
+        return "解釋函令"
+    if "自治條例" in law_name:
+        return "自治條例"
+    return "母法"
+
+
+_CITIES = [
+    "台北市", "臺北市", "新北市", "桃園市",
+    "台中市", "臺中市", "台南市", "臺南市",
+    "高雄市", "基隆市", "新竹市", "嘉義市",
+]
+
+
+def _infer_jurisdiction(law_name: str) -> str:
+    """Infer jurisdiction from the law name prefix."""
+    for city in _CITIES:
+        if law_name.startswith(city) or law_name.startswith(city.replace("市", "")):
+            return city
+    return "全國"
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +98,8 @@ def chunk_document(
     max_article_chars: int = 2000,
     window_size: int = 800,
     overlap: int = 150,
+    law_type: Optional[str] = None,
+    jurisdiction: Optional[str] = None,
 ) -> List[Chunk]:
     """Split a law document into semantically meaningful chunks.
 
@@ -80,20 +114,27 @@ def chunk_document(
         max_article_chars: Articles longer than this are split at sub-items.
         window_size:     Sliding-window chunk size (fallback).
         overlap:         Sliding-window overlap (fallback).
+        law_type:        Override law hierarchy type; auto-inferred from law_name if None.
+        jurisdiction:    Override jurisdiction; auto-inferred from law_name if None.
 
     Returns:
         List of Chunk objects.
     """
+    resolved_law_type = law_type if law_type is not None else _infer_law_type(law_name)
+    resolved_jurisdiction = jurisdiction if jurisdiction is not None else _infer_jurisdiction(law_name)
+
     article_matches = list(ARTICLE_PATTERN.finditer(full_text))
 
     if len(article_matches) >= 2:
         return _article_chunks(
             full_text, page_map, law_name, source_file,
             article_matches, max_article_chars,
+            resolved_law_type, resolved_jurisdiction,
         )
 
     return _sliding_window_chunks(
         full_text, page_map, law_name, source_file, window_size, overlap,
+        resolved_law_type, resolved_jurisdiction,
     )
 
 
@@ -118,6 +159,8 @@ def _make_article_chunk(
     page_start: int,
     page_end: int,
     index: int,
+    law_type: str = "unknown",
+    jurisdiction: str = "全國",
 ) -> Chunk:
     key = f"{law_name}{article_number}{index}"
     chunk_id = hashlib.sha256(key.encode()).hexdigest()[:16]
@@ -132,6 +175,8 @@ def _make_article_chunk(
         strategy="article",
         page_start=page_start,
         page_end=page_end,
+        law_type=law_type,
+        jurisdiction=jurisdiction,
     )
 
 
@@ -173,6 +218,8 @@ def _article_chunks(
     source_file: str,
     article_matches: list,
     max_article_chars: int,
+    law_type: str = "unknown",
+    jurisdiction: str = "全國",
 ) -> List[Chunk]:
     chunks: List[Chunk] = []
     global_index = 0
@@ -199,6 +246,7 @@ def _article_chunks(
                 _make_article_chunk(
                     law_name, source_file, article_number, chapter,
                     part, page_start, page_end, global_index,
+                    law_type=law_type, jurisdiction=jurisdiction,
                 )
             )
             global_index += 1
@@ -244,6 +292,8 @@ def _sliding_window_chunks(
     source_file: str,
     window: int,
     overlap: int,
+    law_type: str = "unknown",
+    jurisdiction: str = "全國",
 ) -> List[Chunk]:
     parts = _sliding_window_text(full_text, window, overlap)
     chunks: List[Chunk] = []
@@ -275,6 +325,8 @@ def _sliding_window_chunks(
                 strategy="sliding_window",
                 page_start=get_page_for_offset(start_offset, page_map),
                 page_end=get_page_for_offset(end_offset, page_map),
+                law_type=law_type,
+                jurisdiction=jurisdiction,
             )
         )
         offset += len(part) - overlap

@@ -2,7 +2,7 @@
 
 Public API::
 
-    from lawrag import Ingestor, Retriever, LawChromaStore
+    from lawrag import Ingestor, Retriever, AgentRetriever, LawChromaStore
 
     store = LawChromaStore(persist_dir="./data/chroma")
     embedder = get_embedding_provider("voyage")
@@ -17,15 +17,22 @@ Public API::
 """
 
 from lawrag.pipeline.ingestor import Ingestor
-from lawrag.pipeline.retriever import Retriever, RAGResponse, Source
+from lawrag.pipeline.retriever import Retriever, AgentRetriever, RAGResponse, Source
+from lawrag.pipeline.planner import QueryPlanner, QueryPlan
+from lawrag.pipeline.verifier import CitationVerifier, VerificationResult
 from lawrag.store.chroma import LawChromaStore
 from lawrag.providers import get_embedding_provider, get_llm_provider
 
 __all__ = [
     "Ingestor",
     "Retriever",
+    "AgentRetriever",
     "RAGResponse",
     "Source",
+    "QueryPlanner",
+    "QueryPlan",
+    "CitationVerifier",
+    "VerificationResult",
     "LawChromaStore",
     "get_embedding_provider",
     "get_llm_provider",

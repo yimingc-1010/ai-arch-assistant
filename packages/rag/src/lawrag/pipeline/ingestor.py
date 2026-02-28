@@ -60,6 +60,8 @@ class Ingestor:
         law_name: Optional[str] = None,
         last_modified: Optional[str] = None,
         verbose: bool = False,
+        law_type: Optional[str] = None,
+        jurisdiction: Optional[str] = None,
     ) -> List[Chunk]:
         """Ingest a PDF file into the vector store.
 
@@ -71,6 +73,8 @@ class Ingestor:
                            changes via content-hash comparison if the law is later re-ingested
                            from a web scrape.
             verbose:       Print progress messages.
+            law_type:      Override law hierarchy type (auto-inferred from law_name if None).
+            jurisdiction:  Override jurisdiction (auto-inferred from law_name if None).
 
         Returns:
             List of Chunk objects that were stored.
@@ -93,6 +97,8 @@ class Ingestor:
             page_map=page_map,
             law_name=law_name,
             source_file=pdf_path.name,
+            law_type=law_type,
+            jurisdiction=jurisdiction,
         )
 
         if verbose:
@@ -123,6 +129,8 @@ class Ingestor:
         content_hash: Optional[str] = None,
         last_modified_source: str = "unknown",
         verbose: bool = False,
+        law_type: Optional[str] = None,
+        jurisdiction: Optional[str] = None,
     ) -> List[Chunk]:
         """Ingest pre-extracted law text (e.g. from a web scrape) into the vector store.
 
@@ -139,6 +147,8 @@ class Ingestor:
                                   change-detection by the sync manager.
             last_modified_source: How the date/hash was obtained.
             verbose:              Print progress messages.
+            law_type:             Override law hierarchy type (auto-inferred from law_name if None).
+            jurisdiction:         Override jurisdiction (auto-inferred from law_name if None).
 
         Returns:
             List of Chunk objects that were stored.
@@ -151,6 +161,8 @@ class Ingestor:
             page_map={0: 1},
             law_name=law_name,
             source_file=source_file,
+            law_type=law_type,
+            jurisdiction=jurisdiction,
         )
 
         if verbose:

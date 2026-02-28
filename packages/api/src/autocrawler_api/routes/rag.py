@@ -6,7 +6,7 @@ import asyncio
 import json
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 try:
     from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -93,6 +93,9 @@ class QueryRequest(BaseModel):
     llm_provider: str = "anthropic"
     embedding_provider: str = "voyage"
     include_sources: bool = True
+    output_format: Literal["prose", "checklist"] = "prose"
+    verify_citations: bool = False
+    jurisdictions: Optional[List[str]] = None
 
 
 @router.post("/query", summary="Ask a legal question")
@@ -114,11 +117,14 @@ def query_rag(req: QueryRequest):
             law_names=req.law_names,
             n_results=req.n_results,
             include_sources=req.include_sources,
+            output_format=req.output_format,
+            verify_citations=req.verify_citations,
+            jurisdictions=req.jurisdictions,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return {
+    result: dict = {
         "answer": response.answer,
         "llm_provider": response.llm_provider,
         "model": response.model,
@@ -135,6 +141,15 @@ def query_rag(req: QueryRequest):
             for s in response.sources
         ],
     }
+    if response.verification is not None:
+        v = response.verification
+        result["verification"] = {
+            "verified": v.verified,
+            "citations_found": v.citations_found,
+            "citations_valid": v.citations_valid,
+            "citations_invalid": v.citations_invalid,
+        }
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -159,12 +174,17 @@ def list_documents():
 # POST /rag/query/stream  — SSE streaming answer
 # ---------------------------------------------------------------------------
 
-# Same system prompt as Retriever (imported to stay DRY)
 _SYSTEM_PROMPT = """你是一位專業的法律助理，專門解答關於中華民國法規的問題。
 請根據以下提供的法條內容來回答問題。
 - 回答時請引用相關法條（例如：依建築法第30條）
 - 如果提供的法條不足以回答問題，請明確說明
 - 請使用繁體中文回答"""
+
+_CHECKLIST_SYSTEM_PROMPT = """你是一位專業的建築法規合規顧問。
+請根據以下法條，以 Markdown 核取清單格式（- [ ] 項目）回答問題。
+每個項目須附上法條依據，格式：- [ ] 說明（依建築法第X條）
+請以繁體中文回答，清單盡量精確具體、可操作。
+如果提供的法條不足以回答問題，請明確說明。"""
 
 _STREAM_MODEL = "claude-sonnet-4-6"
 
@@ -196,6 +216,7 @@ async def stream_query_rag(req: QueryRequest):
                     query_vector=query_vec,
                     law_names=req.law_names,
                     n_results=req.n_results,
+                    jurisdictions=req.jurisdictions,
                 )
 
             results = await loop.run_in_executor(None, _retrieve)
@@ -241,6 +262,11 @@ async def stream_query_rag(req: QueryRequest):
             except ImportError as exc:
                 raise ImportError("anthropic package is required") from exc
 
+            stream_system = (
+                _CHECKLIST_SYSTEM_PROMPT
+                if req.output_format == "checklist"
+                else _SYSTEM_PROMPT
+            )
             client = _anthropic.AsyncAnthropic(
                 api_key=lawrag_config.get_anthropic_api_key()
             )
@@ -248,7 +274,7 @@ async def stream_query_rag(req: QueryRequest):
                 model=_STREAM_MODEL,
                 max_tokens=2048,
                 temperature=0.0,
-                system=_SYSTEM_PROMPT,
+                system=stream_system,
                 messages=[{"role": "user", "content": user_message}],
             ) as stream:
                 async for text in stream.text_stream:
