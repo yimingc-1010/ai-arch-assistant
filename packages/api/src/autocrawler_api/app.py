@@ -24,8 +24,9 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "http://localhost:5173",  # Vite admin app
-            "http://localhost:3000",  # Next.js lawchat app
+            "http://localhost:5173",  # Vite admin app (local dev)
+            "http://localhost:3000",  # Next.js lawchat app (local dev)
+            "http://localhost",       # nginx (Docker, port 80)
         ],
         allow_methods=["*"],
         allow_headers=["*"],

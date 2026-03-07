@@ -105,6 +105,8 @@ class LawChromaStore:
                     "embedding_model": embedding_model,
                     "ingested_at": ingested_at,
                     "last_modified": last_modified or _NONE_SENTINEL,
+                    "law_type": chunk.law_type,
+                    "jurisdiction": chunk.jurisdiction,
                 }
             )
 
@@ -163,13 +165,17 @@ class LawChromaStore:
         query_vector: List[float],
         law_names: Optional[List[str]] = None,
         n_results: int = 5,
+        jurisdictions: Optional[List[str]] = None,
+        law_types: Optional[List[str]] = None,
     ) -> List[dict]:
         """Retrieve the top-k most relevant chunks.
 
         Args:
-            query_vector: Embedding of the user query.
-            law_names:    Filter to these law names. None → search all ingested laws.
-            n_results:    Number of results to return in total.
+            query_vector:  Embedding of the user query.
+            law_names:     Filter to these law names. None → search all ingested laws.
+            n_results:     Number of results to return in total.
+            jurisdictions: Filter to these jurisdictions (e.g. ["台北市", "全國"]).
+            law_types:     Filter to these law hierarchy types (e.g. ["母法", "子法"]).
 
         Returns:
             List of result dicts sorted by score (ascending distance = better).
@@ -180,6 +186,9 @@ class LawChromaStore:
 
         if not law_names:
             return []
+
+        # Build ChromaDB where clause for metadata filtering
+        where_clause = self._build_where_clause(jurisdictions, law_types)
 
         all_results: List[dict] = []
 
@@ -195,11 +204,15 @@ class LawChromaStore:
                 continue
 
             k = min(n_results, col_count)
-            results = collection.query(
-                query_embeddings=[query_vector],
-                n_results=k,
-                include=["documents", "metadatas", "distances"],
-            )
+            query_kwargs: dict = {
+                "query_embeddings": [query_vector],
+                "n_results": k,
+                "include": ["documents", "metadatas", "distances"],
+            }
+            if where_clause:
+                query_kwargs["where"] = where_clause
+
+            results = collection.query(**query_kwargs)
 
             ids = results["ids"][0]
             documents = results["documents"][0]
@@ -219,6 +232,23 @@ class LawChromaStore:
         # Sort by score (lowest cosine distance first) and return top-k
         all_results.sort(key=lambda x: x["score"])
         return all_results[:n_results]
+
+    def _build_where_clause(
+        self,
+        jurisdictions: Optional[List[str]],
+        law_types: Optional[List[str]],
+    ) -> Optional[dict]:
+        """Build a ChromaDB where clause from filter lists."""
+        conditions = []
+        if jurisdictions:
+            conditions.append({"jurisdiction": {"$in": jurisdictions}})
+        if law_types:
+            conditions.append({"law_type": {"$in": law_types}})
+        if not conditions:
+            return None
+        if len(conditions) == 1:
+            return conditions[0]
+        return {"$and": conditions}
 
     # ------------------------------------------------------------------
     # List

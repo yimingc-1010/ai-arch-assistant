@@ -22,6 +22,7 @@ interface LawDocument {
   ingested_at: string
 }
 
+type OutputFormat = 'prose' | 'checklist'
 type MsgStatus = 'retrieving' | 'streaming' | 'done' | 'error'
 
 interface Message {
@@ -40,8 +41,13 @@ type StreamEvent =
   | { type: 'error'; message: string }
 
 // ---------------------------------------------------------------------------
-// Preset questions
+// Constants
 // ---------------------------------------------------------------------------
+
+const CITIES = [
+  '台北市', '新北市', '桃園市', '台中市',
+  '台南市', '高雄市', '基隆市', '新竹市', '嘉義市',
+]
 
 const PRESETS = [
   '申請建造執照需要哪些文件？',
@@ -59,6 +65,8 @@ const PRESETS = [
 async function* fetchStream(
   question: string,
   lawNames: string[] | null,
+  outputFormat: OutputFormat,
+  jurisdictions: string[] | null,
 ): AsyncGenerator<StreamEvent> {
   const res = await fetch('/api/query-stream', {
     method: 'POST',
@@ -69,6 +77,8 @@ async function* fetchStream(
       n_results: 5,
       llm_provider: 'anthropic',
       embedding_provider: 'voyage',
+      output_format: outputFormat,
+      jurisdictions: jurisdictions,
     }),
   })
 
@@ -107,6 +117,8 @@ export default function LawChat() {
   const [input, setInput] = useState('')
   const [laws, setLaws] = useState<LawDocument[]>([])
   const [selectedLaws, setSelectedLaws] = useState<string[]>([])
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>('prose')
+  const [selectedCity, setSelectedCity] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -154,10 +166,16 @@ export default function LawChat() {
         },
       ])
 
+      const jurisdictions = selectedCity
+        ? [selectedCity, '全國']
+        : null
+
       try {
         for await (const ev of fetchStream(
           trimmed,
           selectedLaws.length > 0 ? selectedLaws : null,
+          outputFormat,
+          jurisdictions,
         )) {
           if (ev.type === 'sources') {
             patchLast((m) => ({
@@ -187,7 +205,7 @@ export default function LawChat() {
         inputRef.current?.focus()
       }
     },
-    [isLoading, selectedLaws, patchLast],
+    [isLoading, selectedLaws, outputFormat, selectedCity, patchLast],
   )
 
   const toggleLaw = (name: string) =>
@@ -236,6 +254,48 @@ export default function LawChat() {
               )}
             </div>
           )}
+
+          {/* Toolbar: output format toggle + city selector */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Output format toggle */}
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setOutputFormat('prose')}
+                className={`text-xs px-3 py-1 rounded-md transition-all ${
+                  outputFormat === 'prose'
+                    ? 'bg-white text-slate-800 shadow-sm font-medium'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                問答模式
+              </button>
+              <button
+                onClick={() => setOutputFormat('checklist')}
+                className={`text-xs px-3 py-1 rounded-md transition-all ${
+                  outputFormat === 'checklist'
+                    ? 'bg-white text-slate-800 shadow-sm font-medium'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                清單模式
+              </button>
+            </div>
+
+            {/* City/jurisdiction selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400">縣市：</span>
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              >
+                <option value="">全部</option>
+                {CITIES.map((city) => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </header>
 
