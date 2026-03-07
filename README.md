@@ -132,9 +132,12 @@ ai-arch-assistant/
 ### Environment Variables
 
 ```bash
-LAWRAG_VOYAGE_API_KEY=...       # Voyage AI key
-LAWRAG_ANTHROPIC_API_KEY=...    # Anthropic key
-LAWRAG_CHROMA_PATH=./chroma_db  # ChromaDB storage path (default)
+VOYAGE_API_KEY=...              # Voyage AI key (required)
+ANTHROPIC_API_KEY=...           # Anthropic key (required)
+OPENAI_API_KEY=...              # OpenAI key (optional)
+LAWRAG_CHROMA_DIR=./data/chroma # ChromaDB storage path (default)
+LAWRAG_EMBEDDING_PROVIDER=voyage # voyage | openai (default: voyage)
+LAWRAG_LLM_PROVIDER=anthropic   # anthropic | openai (default: anthropic)
 ```
 
 ## Docker
@@ -151,7 +154,7 @@ LAWRAG_CHROMA_PATH=./chroma_db  # ChromaDB storage path (default)
 
 ```bash
 cp .env.example .env
-# 編輯 .env，填入 LAWRAG_VOYAGE_API_KEY 和 LAWRAG_ANTHROPIC_API_KEY
+# 編輯 .env，填入 VOYAGE_API_KEY 和 ANTHROPIC_API_KEY
 ```
 
 ### 常用指令
@@ -190,6 +193,35 @@ docker compose build lawchat
 docker compose restart api
 ```
 
+### 法條資料 Ingest
+
+Docker 使用 named volume（`chroma_data`）儲存 ChromaDB，與本地開發環境隔離。容器啟動後，透過 API 將 PDF 匯入：
+
+```bash
+# 匯入單一 PDF（LAW_NAME 選填，預設使用檔名）
+make docker-ingest FILE=建築法.pdf LAW_NAME=建築法
+
+# 批次匯入目錄下所有 PDF
+make docker-ingest-all DIR=./pdfs
+
+# 直接 curl（等同 make docker-ingest）
+curl -X POST http://localhost:8000/rag/ingest \
+  -F "file=@建築法.pdf" \
+  -F "law_name=建築法" \
+  -F "embedding_provider=voyage"
+
+# 查看已匯入的法條清單
+curl http://localhost:8000/rag/documents
+```
+
+資料儲存在 named volume，`docker compose down` 不會刪除，**重新部署不需重新 ingest**。若需清除所有資料：
+
+```bash
+docker compose down -v
+```
+
 ### Volume
 
-ChromaDB 向量資料庫存放在名為 `chroma_data` 的 Docker volume，`docker compose down` 不會刪除它。若需完整清除資料，請使用 `docker compose down -v`。
+| Volume | 說明 | 清除時機 |
+|---|---|---|
+| `chroma_data` | ChromaDB 向量資料 | `docker compose down -v` |
