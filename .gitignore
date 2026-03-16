@@ -1,8 +1,10 @@
 # 環境變數（絕對不能 commit）
 .env
 
-# ChromaDB 資料
+# ChromaDB 資料 and generated data (but allow the laws source directory)
 data/
+!data/laws/
+!data/laws/.gitkeep
 
 # Python
 __pycache__/
