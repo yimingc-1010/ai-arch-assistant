@@ -56,3 +56,7 @@ def get_anthropic_api_key() -> str:
 def get_openai_api_key() -> str:
     key = os.environ.get("OPENAI_API_KEY", "")
     return key
+
+
+def get_laws_dir() -> str:
+    return os.environ.get("LAWRAG_LAWS_DIR", "./data/laws")

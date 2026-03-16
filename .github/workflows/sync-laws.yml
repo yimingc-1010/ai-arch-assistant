@@ -1,0 +1,24 @@
+name: Sync Law PDFs
+
+on:
+  push:
+    paths:
+      - 'data/laws/**'
+  schedule:
+    - cron: '0 2 * * *'   # Daily at 02:00 UTC
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sync endpoint
+        env:
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          BODY='{}'
+          SIG="sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
+          curl -f -X POST "$DEPLOY_URL/rag/sync" \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $SIG" \
+            -d "$BODY"

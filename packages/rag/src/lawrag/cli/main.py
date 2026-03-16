@@ -112,6 +112,39 @@ def cmd_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sync(args: argparse.Namespace) -> int:
+    from lawrag.providers import get_embedding_provider
+    from lawrag.sync.scanner import LocalPDFScanner
+    from lawrag.sync.manager import SyncManager
+    from lawrag import config
+
+    laws_dir = Path(args.laws_dir or config.get_laws_dir())
+    store = _build_store(args.chroma_dir)
+    embedder = get_embedding_provider(args.embedding_provider)
+
+    scanner = LocalPDFScanner(laws_dir=laws_dir)
+    manager = SyncManager(source=scanner, store=store, embedder=embedder)
+
+    try:
+        result = manager.run(force=args.force, verbose=args.verbose)
+    except FileNotFoundError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.verbose or result.errors:
+        print(f"Ingested: {len(result.ingested)}  Skipped: {len(result.skipped)}  Errors: {len(result.errors)}")
+        for law in result.ingested:
+            print(f"  + {law}")
+        for law in result.skipped:
+            print(f"  = {law}")
+        for err in result.errors:
+            print(f"  ! {err}", file=sys.stderr)
+    else:
+        print(f"Sync complete: {len(result.ingested)} ingested, {len(result.skipped)} skipped")
+
+    return 1 if result.errors else 0
+
+
 def main() -> None:
     # Load .env before parsing args so API keys are available
     from lawrag.config import load_dotenv
@@ -179,6 +212,26 @@ def main() -> None:
     list_parser.add_argument("--json", action="store_true", help="Output as JSON")
     list_parser.add_argument("--chroma-dir", default=None)
 
+    # ── sync ────────────────────────────────────────────────────────────
+    sync_parser = subparsers.add_parser("sync", help="Sync PDFs from data/laws/ into the vector store")
+    sync_parser.add_argument(
+        "--laws-dir",
+        default=None,
+        help="Directory to scan for PDFs (default: LAWRAG_LAWS_DIR or ./data/laws)",
+    )
+    sync_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-ingest all PDFs regardless of hash match",
+    )
+    sync_parser.add_argument(
+        "--embedding-provider",
+        default=None,
+        choices=["voyage", "openai"],
+    )
+    sync_parser.add_argument("-v", "--verbose", action="store_true")
+    sync_parser.add_argument("--chroma-dir", default=None)
+
     args = parser.parse_args()
 
     # Route to the right handler
@@ -186,6 +239,7 @@ def main() -> None:
         "ingest": cmd_ingest,
         "query": cmd_query,
         "list": cmd_list,
+        "sync": cmd_sync,
     }
 
     exit_code = handlers[args.command](args)

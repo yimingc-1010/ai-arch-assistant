@@ -59,6 +59,7 @@ class Ingestor:
         pdf_path: str | Path,
         law_name: Optional[str] = None,
         last_modified: Optional[str] = None,
+        content_hash: Optional[str] = None,
         verbose: bool = False,
         law_type: Optional[str] = None,
         jurisdiction: Optional[str] = None,
@@ -113,9 +114,7 @@ class Ingestor:
         return self._embed_and_store(
             chunks=chunks,
             last_modified=last_modified,
-            # PDF ingests don't produce a web-comparable article hash; leave None
-            # so the sync manager falls through to its conservative default on first run.
-            content_hash=None,
+            content_hash=content_hash,
             last_modified_source="page" if last_modified else "unknown",
             verbose=verbose,
         )

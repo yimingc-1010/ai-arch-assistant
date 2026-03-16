@@ -48,6 +48,13 @@ def create_app() -> FastAPI:
     except ImportError:
         pass
 
+    # lawrag sync route (optional — only registered when lawrag is installed)
+    try:
+        from autocrawler_api.routes import sync as sync_route
+        app.include_router(sync_route.router)
+    except ImportError:
+        pass
+
     return app
 
 
