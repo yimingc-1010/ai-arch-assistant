@@ -14,7 +14,7 @@ jobs:
       - name: Trigger sync endpoint
         env:
           DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
-          WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
         run: |
           BODY='{}'
           SIG="sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
