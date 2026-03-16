@@ -16,9 +16,10 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/.next        ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+COPY apps/lawchat/package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/.next ./.next
 
 EXPOSE 3000
 
