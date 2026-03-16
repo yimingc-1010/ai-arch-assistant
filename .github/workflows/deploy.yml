@@ -27,6 +27,7 @@ jobs:
             # Rebuild changed images and restart services
             docker compose -f docker-compose.prod.yml build --pull
             docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml restart nginx
 
             # Clean up dangling images to save disk space
             docker image prune -f

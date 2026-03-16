@@ -27,6 +27,12 @@ services:
       api:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   nginx:
     image: nginx:alpine
@@ -38,7 +44,8 @@ services:
       - certbot_www:/var/www/certbot:ro
       - certbot_certs:/etc/letsencrypt:ro
     depends_on:
-      - lawchat
+      lawchat:
+        condition: service_healthy
     restart: unless-stopped
 
   certbot:
