@@ -165,6 +165,28 @@ class TestIngestor:
         assert call_kwargs["content_hash"] == "deadbeef"
         assert call_kwargs["last_modified_source"] == "page"
 
+    def test_ingest_forwards_content_hash_to_store(self, tmp_path):
+        """When content_hash is passed to ingest(), it must reach upsert_chunks()."""
+        pdf_file = tmp_path / "建築法.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4")
+
+        mock_chunks = [_make_chunk("建築法", 0)]
+
+        with (
+            patch("lawrag.pipeline.ingestor.extract_text", return_value=("content", {0: 1})),
+            patch("lawrag.pipeline.ingestor.chunk_document", return_value=mock_chunks),
+        ):
+            store = MagicMock()
+            embedder = MagicMock()
+            embedder.embed.return_value = [[0.1] * 8]
+            embedder.provider_name = "mock"
+
+            ingestor = self._make_ingestor(store=store, embedder=embedder)
+            ingestor.ingest(pdf_file, law_name="建築法", content_hash="abc123def456")
+
+        call_kwargs = store.upsert_chunks.call_args[1]
+        assert call_kwargs["content_hash"] == "abc123def456"
+
     def test_ingest_text_empty_produces_no_chunks(self):
         with patch("lawrag.pipeline.ingestor.chunk_document", return_value=[]):
             store = MagicMock()
