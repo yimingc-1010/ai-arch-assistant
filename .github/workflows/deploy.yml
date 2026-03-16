@@ -21,7 +21,7 @@ jobs:
             cd ~/ai-arch-assistant
 
             # Pull latest code
-            git pull origin master
+            git pull --rebase origin master
 
             # Rebuild changed images and restart services
             docker compose -f docker-compose.prod.yml build --pull
