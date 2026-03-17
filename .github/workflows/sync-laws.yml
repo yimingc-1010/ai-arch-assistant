@@ -19,6 +19,7 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             cd ~/ai-arch-assistant
+            git clean -fd data/laws/
             git pull origin master
 
       - name: Trigger sync endpoint

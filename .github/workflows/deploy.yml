@@ -21,7 +21,8 @@ jobs:
             set -e
             cd ~/ai-arch-assistant
 
-            # Pull latest code
+            # Pull latest code (clean untracked files in data/laws/ to avoid merge conflicts)
+            git clean -fd data/laws/
             git pull origin master
 
             # Rebuild changed images and restart services
