@@ -4,7 +4,7 @@
 # ChromaDB 資料 and generated data (but allow the laws source directory)
 data/
 !data/laws/
-!data/laws/.gitkeep
+!data/laws/**
 
 # Python
 __pycache__/
