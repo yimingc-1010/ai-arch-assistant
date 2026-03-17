@@ -2,9 +2,7 @@
 .env
 
 # ChromaDB 資料 and generated data (but allow the laws source directory)
-data/
-!data/laws/
-!data/laws/**
+data/chroma
 
 # Python
 __pycache__/
@@ -23,3 +21,6 @@ node_modules/
 .vscode/
 .idea/
 *.swp
+
+# macOS
+.DS_Store
