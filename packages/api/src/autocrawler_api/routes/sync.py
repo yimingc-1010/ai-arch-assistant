@@ -15,7 +15,7 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 
 
 def _get_webhook_secret() -> str:
-    return os.environ.get("GITHUB_WEBHOOK_SECRET", "")
+    return os.environ.get("WEBHOOK_SECRET", "")
 
 
 def _verify_signature(body: bytes, header: str | None, secret: str) -> bool:

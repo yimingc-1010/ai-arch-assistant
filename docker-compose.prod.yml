@@ -7,8 +7,10 @@ services:
     env_file: .env
     environment:
       LAWRAG_CHROMA_DIR: /data/chroma
+      LAWRAG_LAWS_DIR: /data/laws
     volumes:
       - chroma_data:/data/chroma
+      - ./data/laws:/data/laws:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
