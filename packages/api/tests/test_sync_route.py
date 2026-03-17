@@ -22,7 +22,7 @@ def _make_sig(body: bytes, secret: str) -> str:
 
 @pytest.fixture()
 def client(monkeypatch):
-    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("WEBHOOK_SECRET", SECRET)
     monkeypatch.setenv("LAWRAG_CHROMA_DIR", "/tmp/test-chroma")
     monkeypatch.setenv("LAWRAG_LAWS_DIR", "/tmp/test-laws")
     from autocrawler_api.app import create_app
@@ -54,7 +54,7 @@ class TestSyncRoute:
         assert resp.status_code == 401
 
     def test_no_secret_configured_returns_500(self, monkeypatch):
-        monkeypatch.delenv("GITHUB_WEBHOOK_SECRET", raising=False)
+        monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
         monkeypatch.setenv("LAWRAG_CHROMA_DIR", "/tmp/test-chroma")
         monkeypatch.setenv("LAWRAG_LAWS_DIR", "/tmp/test-laws")
         from autocrawler_api.app import create_app

@@ -11,6 +11,16 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Pull latest laws to VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd ~/ai-arch-assistant
+            git pull origin master
+
       - name: Trigger sync endpoint
         env:
           DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
