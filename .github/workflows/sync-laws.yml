@@ -1,28 +1,32 @@
 name: Sync Law PDFs
 
 on:
-  push:
-    paths:
-      - 'data/laws/**'
+  workflow_run:
+    workflows: ["Deploy to Production"]
+    types: [completed]
+    branches: [master]
   schedule:
     - cron: '0 2 * * *'   # Daily at 02:00 UTC
 
 jobs:
   sync:
+    if: >
+      github.event_name == 'schedule' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Pull latest laws to VM
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            cd ~/ai-arch-assistant
-            git clean -fd data/laws/
-            git pull origin master
+      - name: Check if laws changed
+        id: check
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COUNT=$(gh api "repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}" \
+            --jq '[.files[].filename | select(startswith("data/laws/"))] | length')
+          echo "changed=$( [ "$COUNT" -gt 0 ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
       - name: Trigger sync endpoint
+        if: github.event_name == 'schedule' || steps.check.outputs.changed == 'true'
         env:
           DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
