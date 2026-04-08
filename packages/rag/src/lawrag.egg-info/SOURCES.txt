@@ -14,7 +14,9 @@ src/lawrag/pdf/chunker.py
 src/lawrag/pdf/reader.py
 src/lawrag/pipeline/__init__.py
 src/lawrag/pipeline/ingestor.py
+src/lawrag/pipeline/planner.py
 src/lawrag/pipeline/retriever.py
+src/lawrag/pipeline/verifier.py
 src/lawrag/providers/__init__.py
 src/lawrag/providers/anthropic_llm.py
 src/lawrag/providers/base.py
@@ -23,9 +25,15 @@ src/lawrag/providers/openai_llm.py
 src/lawrag/providers/voyage.py
 src/lawrag/store/__init__.py
 src/lawrag/store/chroma.py
+src/lawrag/sync/__init__.py
+src/lawrag/sync/manager.py
+src/lawrag/sync/scanner.py
 tests/test_chunker.py
+tests/test_config.py
 tests/test_ingestor.py
 tests/test_providers.py
 tests/test_reader.py
 tests/test_retriever.py
+tests/test_scanner.py
 tests/test_store.py
+tests/test_sync_manager.py

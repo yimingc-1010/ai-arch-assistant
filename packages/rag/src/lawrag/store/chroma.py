@@ -45,8 +45,12 @@ class LawChromaStore:
             ) from e
 
         self._client = chromadb.PersistentClient(path=str(persist_dir))
-        # Ensure index collection exists
-        self._index = self._client.get_or_create_collection(_INDEX_COLLECTION)
+        # Ensure index collection exists.
+        # embedding_function=None tells ChromaDB we manage embeddings ourselves,
+        # preventing it from downloading the default all-MiniLM-L6-v2 ONNX model.
+        self._index = self._client.get_or_create_collection(
+            _INDEX_COLLECTION, embedding_function=None
+        )
 
     # ------------------------------------------------------------------
     # Upsert
@@ -78,6 +82,7 @@ class LawChromaStore:
         law_name = chunks[0].law_name
         collection = self._client.get_or_create_collection(
             _law_collection_name(law_name),
+            embedding_function=None,
             metadata={"hnsw:space": "cosine"},
         )
 
@@ -195,7 +200,7 @@ class LawChromaStore:
         for name in law_names:
             col_name = _law_collection_name(name)
             try:
-                collection = self._client.get_collection(col_name)
+                collection = self._client.get_collection(col_name, embedding_function=None)
             except Exception:
                 continue  # law not yet ingested
 
