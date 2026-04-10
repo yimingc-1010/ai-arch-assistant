@@ -207,10 +207,12 @@ export default function LawChat() {
     [isLoading, selectedLaws, outputFormat, selectedCity, patchLast],
   )
 
-  const toggleLaw = (name: string) =>
+  const toggleLaw = (name: string) => {
     setSelectedLaws((prev) =>
       prev.includes(name) ? prev.filter((l) => l !== name) : [...prev, name],
     )
+    setSidebarOpen(false)
+  }
 
   const filteredLaws = laws.filter(
     (doc) => !lawSearch || doc.law_name.includes(lawSearch),

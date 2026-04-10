@@ -5,17 +5,21 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
-    "start": "next start --port 3000"
+    "start": "next start --port 3000",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@tailwindcss/typography": "^0.5.13",
     "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",
-    "remark-gfm": "^4.0.0",
-    "@tailwindcss/typography": "^0.5.13"
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
