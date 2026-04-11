@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from lawrag.pdf.chunker import Chunk
 
@@ -204,7 +207,18 @@ class LawChromaStore:
             except Exception:
                 continue  # law not yet ingested
 
-            col_count = collection.count()
+            try:
+                col_count = collection.count()
+            except Exception:
+                # ChromaDB 1.5.x Rust HNSW reader raises "Nothing found on disk"
+                # when a collection's segment was registered in SQLite but the
+                # HNSW index files were never written (e.g. interrupted ingest).
+                logger.warning(
+                    "Skipping collection %s (%s): HNSW segment unreadable",
+                    col_name, name,
+                )
+                continue
+
             if col_count == 0:
                 continue
 
@@ -217,7 +231,14 @@ class LawChromaStore:
             if where_clause:
                 query_kwargs["where"] = where_clause
 
-            results = collection.query(**query_kwargs)
+            try:
+                results = collection.query(**query_kwargs)
+            except Exception:
+                logger.warning(
+                    "Skipping collection %s (%s): query failed",
+                    col_name, name,
+                )
+                continue
 
             ids = results["ids"][0]
             documents = results["documents"][0]
@@ -290,3 +311,57 @@ class LawChromaStore:
             if meta.get(field) == _NONE_SENTINEL:
                 meta[field] = None
         return meta
+
+    # ------------------------------------------------------------------
+    # Repair
+    # ------------------------------------------------------------------
+
+    def repair_orphaned_segments(self) -> List[str]:
+        """Delete collections whose HNSW segment files are missing from disk.
+
+        In ChromaDB 1.5.x an interrupted ingest can leave a collection
+        registered in SQLite but with no HNSW index files on disk.  Any
+        subsequent query on such a collection raises::
+
+            Error executing plan: Internal error:
+            Error creating hnsw segment reader: Nothing found on disk
+
+        This method detects those orphaned collections, deletes them from
+        ChromaDB (so they can be safely re-ingested), and returns the list
+        of deleted collection names.
+        """
+        import sqlite3 as _sqlite3
+
+        persist_dir = Path(str(self._client._settings.persist_directory))  # type: ignore[attr-defined]
+        db_path = persist_dir / "chroma.sqlite3"
+
+        conn = _sqlite3.connect(str(db_path))
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT s.id, c.name FROM segments s "
+                "JOIN collections c ON s.collection = c.id "
+                "WHERE s.scope = 'VECTOR'"
+            )
+            vector_segments = cur.fetchall()
+        finally:
+            conn.close()
+
+        deleted: List[str] = []
+        for seg_id, col_name in vector_segments:
+            seg_path = persist_dir / seg_id
+            # A healthy segment has at least header.bin written after the first upsert
+            header = seg_path / "header.bin"
+            if not seg_path.exists() or not header.exists() or header.stat().st_size == 0:
+                logger.warning(
+                    "Removing orphaned collection %s (segment %s missing HNSW files)",
+                    col_name, seg_id,
+                )
+                try:
+                    self._client.delete_collection(col_name)
+                    deleted.append(col_name)
+                except Exception as exc:
+                    logger.error(
+                        "Failed to delete orphaned collection %s: %s", col_name, exc
+                    )
+        return deleted

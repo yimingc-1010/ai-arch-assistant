@@ -377,3 +377,21 @@ def list_documents():
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"documents": documents, "count": len(documents)}
+
+
+# ---------------------------------------------------------------------------
+# POST /admin/repair — remove orphaned ChromaDB segments
+# ---------------------------------------------------------------------------
+
+@router.post("/repair", summary="Remove collections with missing HNSW segment files")
+def repair_store():
+    """Detect and delete ChromaDB collections whose HNSW index files are missing
+    on disk (caused by an interrupted ingest).  Deleted collections can be
+    safely re-ingested.  Returns the list of removed collection names."""
+    _require_lawrag()
+    try:
+        store = _get_store()
+        deleted = store.repair_orphaned_segments()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"deleted": deleted, "count": len(deleted)}
