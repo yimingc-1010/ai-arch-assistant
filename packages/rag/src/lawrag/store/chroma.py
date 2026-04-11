@@ -332,7 +332,7 @@ class LawChromaStore:
         """
         import sqlite3 as _sqlite3
 
-        persist_dir = Path(str(self._client._settings.persist_directory))  # type: ignore[attr-defined]
+        persist_dir = Path(str(self._client.get_settings().persist_directory))
         db_path = persist_dir / "chroma.sqlite3"
 
         conn = _sqlite3.connect(str(db_path))
