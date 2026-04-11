@@ -120,11 +120,12 @@ export default function LawChat() {
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('prose')
   const [selectedCity, setSelectedCity] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [lawSearch, setLawSearch] = useState('')
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load indexed laws
   useEffect(() => {
     fetch('/api/documents')
       .then((r) => r.json())
@@ -132,7 +133,6 @@ export default function LawChat() {
       .catch(() => {})
   }, [])
 
-  // Scroll to bottom whenever messages update
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -153,6 +153,7 @@ export default function LawChat() {
 
       setInput('')
       setIsLoading(true)
+      setSidebarOpen(false)
 
       setMessages((prev) => [
         ...prev,
@@ -166,9 +167,7 @@ export default function LawChat() {
         },
       ])
 
-      const jurisdictions = selectedCity
-        ? [selectedCity, '全國']
-        : null
+      const jurisdictions = selectedCity ? [selectedCity, '全國'] : null
 
       try {
         for await (const ev of fetchStream(
@@ -208,172 +207,282 @@ export default function LawChat() {
     [isLoading, selectedLaws, outputFormat, selectedCity, patchLast],
   )
 
-  const toggleLaw = (name: string) =>
+  const toggleLaw = (name: string) => {
     setSelectedLaws((prev) =>
       prev.includes(name) ? prev.filter((l) => l !== name) : [...prev, name],
     )
+    setSidebarOpen(false)
+  }
+
+  const filteredLaws = laws.filter(
+    (doc) => !lawSearch || doc.law_name.includes(lawSearch),
+  )
 
   const hasMessages = messages.length > 0
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50">
-      {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-200 shadow-sm flex-shrink-0">
-        <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
-          {/* Title row */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg select-none">
+    <div className="flex h-screen bg-[#F7F8FA] overflow-hidden">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ── */}
+      <aside
+        className={`
+          fixed md:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-[#E8E8E8]
+          flex flex-col transition-transform duration-200 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+      >
+        {/* Sidebar logo */}
+        <div className="px-4 pt-5 pb-4 border-b border-[#F0F0F0]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#1A1A1A] flex items-center justify-center text-white text-sm select-none flex-shrink-0">
               ⚖
             </div>
-            <div>
-              <h1 className="font-bold text-slate-900 leading-tight">法規問答</h1>
-              <p className="text-xs text-slate-400">基於 RAG 的法律條文智慧問答系統</p>
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-[#1A1A1A] leading-tight">建築法規 AI 助手</div>
+              <div className="text-[10px] text-[#888888] leading-tight">法律條文智慧檢索系統</div>
             </div>
           </div>
+        </div>
 
-          {/* Law filter pills */}
-          {laws.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-slate-400">查詢範圍：</span>
-              {laws.map((doc) => (
-                <button
-                  key={doc.law_name}
-                  onClick={() => toggleLaw(doc.law_name)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
-                    selectedLaws.includes(doc.law_name)
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : 'bg-white text-slate-600 border-slate-300 hover:border-blue-400'
-                  }`}
-                >
-                  {doc.law_name}
-                  {selectedLaws.includes(doc.law_name) && ' ✓'}
-                </button>
-              ))}
-              {selectedLaws.length === 0 && (
-                <span className="text-xs text-slate-400">全部法規</span>
+        {/* Law search */}
+        <div className="px-3 py-3">
+          <div className="relative">
+            <svg
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#888888]"
+              width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5"
+            >
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              value={lawSearch}
+              onChange={(e) => setLawSearch(e.target.value)}
+              placeholder="搜尋法規..."
+              className="w-full pl-7 pr-3 py-1.5 text-xs bg-[#F7F8FA] border border-[#E8E8E8] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#4A9FD8] text-[#1A1A1A] placeholder:text-[#AAAAAA]"
+            />
+          </div>
+        </div>
+
+        {/* Law list */}
+        <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
+          <div className="text-[10px] font-medium text-[#AAAAAA] uppercase tracking-wider px-2 pb-2">
+            查詢範圍
+          </div>
+
+          <button
+            onClick={() => setSelectedLaws([])}
+            className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
+              selectedLaws.length === 0
+                ? 'bg-[#1A1A1A] text-white font-medium'
+                : 'text-[#333333] hover:bg-[#F7F8FA]'
+            }`}
+          >
+            全部法規
+          </button>
+
+          {filteredLaws.map((doc) => (
+            <button
+              key={doc.law_name}
+              onClick={() => toggleLaw(doc.law_name)}
+              className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between gap-1 ${
+                selectedLaws.includes(doc.law_name)
+                  ? 'bg-[#EBF5FF] text-[#4A9FD8] font-medium'
+                  : 'text-[#333333] hover:bg-[#F7F8FA]'
+              }`}
+            >
+              <span className="truncate">{doc.law_name}</span>
+              {selectedLaws.includes(doc.law_name) && (
+                <svg className="flex-shrink-0 text-[#4A9FD8]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M20 6 9 17l-5-5"/>
+                </svg>
               )}
-            </div>
-          )}
+            </button>
+          ))}
 
-          {/* Toolbar: output format toggle + city selector */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Output format toggle */}
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+          {filteredLaws.length === 0 && lawSearch && (
+            <p className="text-xs text-[#AAAAAA] px-3 py-2">找不到相符法規</p>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <div className="flex flex-col flex-1 min-w-0">
+
+        {/* ── Header ── */}
+        <header className="bg-white border-b border-[#E8E8E8] flex items-center px-4 py-3 gap-3 flex-shrink-0">
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden p-1.5 -ml-1.5 rounded-lg text-[#1A1A1A] hover:bg-[#F7F8FA] transition-colors"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label="開啟選單"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+
+          {/* Mobile: logo + title */}
+          <div className="md:hidden flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-[#1A1A1A] flex items-center justify-center text-white text-xs select-none flex-shrink-0">
+              ⚖
+            </div>
+            <span className="text-sm font-bold text-[#1A1A1A] truncate">建築法規 AI 助手</span>
+          </div>
+
+          {/* Desktop: current scope label */}
+          <div className="hidden md:flex flex-1 min-w-0 items-center gap-2">
+            <span className="text-sm font-medium text-[#1A1A1A] truncate">
+              {selectedLaws.length === 0
+                ? '全部法規'
+                : selectedLaws.length === 1
+                ? selectedLaws[0]
+                : `${selectedLaws[0]} 等 ${selectedLaws.length} 部法規`}
+            </span>
+            {selectedLaws.length > 0 && (
+              <button
+                onClick={() => setSelectedLaws([])}
+                className="text-xs text-[#AAAAAA] hover:text-[#666666] transition-colors"
+              >
+                清除
+              </button>
+            )}
+          </div>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Format toggle */}
+            <div className="flex items-center bg-[#F7F8FA] rounded-lg p-0.5 border border-[#E8E8E8]">
               <button
                 onClick={() => setOutputFormat('prose')}
-                className={`text-xs px-3 py-1 rounded-md transition-all ${
+                className={`text-xs px-2.5 py-1 rounded-md transition-all ${
                   outputFormat === 'prose'
-                    ? 'bg-white text-slate-800 shadow-sm font-medium'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white text-[#1A1A1A] shadow-sm font-medium'
+                    : 'text-[#666666] hover:text-[#1A1A1A]'
                 }`}
               >
-                問答模式
+                問答
               </button>
               <button
                 onClick={() => setOutputFormat('checklist')}
-                className={`text-xs px-3 py-1 rounded-md transition-all ${
+                className={`text-xs px-2.5 py-1 rounded-md transition-all ${
                   outputFormat === 'checklist'
-                    ? 'bg-white text-slate-800 shadow-sm font-medium'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white text-[#1A1A1A] shadow-sm font-medium'
+                    : 'text-[#666666] hover:text-[#1A1A1A]'
                 }`}
               >
-                清單模式
+                清單
               </button>
             </div>
 
-            {/* City/jurisdiction selector */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-400">縣市：</span>
-              <select
-                value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
-                className="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
-                <option value="">全部</option>
-                {CITIES.map((city) => (
-                  <option key={city} value={city}>{city}</option>
-                ))}
-              </select>
-            </div>
+            {/* City selector */}
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="text-xs border border-[#E8E8E8] rounded-lg px-2 py-1.5 bg-white text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#4A9FD8] cursor-pointer"
+            >
+              <option value="">全部縣市</option>
+              {CITIES.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* ── Messages ── */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-          {/* Welcome + presets (shown when no messages) */}
-          {!hasMessages && (
-            <div className="space-y-6 mt-4">
-              <p className="text-center text-slate-400 text-sm">
-                請輸入問題，或選擇下方常見問題開始
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {PRESETS.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => submit(q)}
-                    disabled={isLoading}
-                    className="text-sm text-left px-4 py-3 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition-all disabled:opacity-50 shadow-sm"
-                  >
-                    {q}
-                  </button>
-                ))}
+        {/* ── Messages ── */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+            {/* Empty state */}
+            {!hasMessages && (
+              <div className="space-y-8 mt-6">
+                <div className="text-center space-y-2">
+                  <div className="w-14 h-14 rounded-2xl bg-[#1A1A1A] flex items-center justify-center text-white text-2xl mx-auto mb-4 shadow-sm">
+                    ⚖
+                  </div>
+                  <h2 className="text-xl font-bold text-[#1A1A1A]">建築法規 AI 助手</h2>
+                  <p className="text-sm text-[#666666]">輸入問題，即時查詢相關法條與解釋</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {PRESETS.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => submit(q)}
+                      disabled={isLoading}
+                      className="text-sm text-left px-4 py-3.5 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#4A9FD8] hover:shadow-sm text-[#1A1A1A] transition-all disabled:opacity-50 shadow-sm group"
+                    >
+                      <span className="text-[#4A9FD8] mr-2 group-hover:mr-3 transition-all">→</span>
+                      {q}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Chat messages */}
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+
+            <div ref={bottomRef} />
+          </div>
+        </main>
+
+        {/* ── Input bar ── */}
+        <div className="bg-white border-t border-[#E8E8E8] flex-shrink-0 px-4 pt-3 pb-4 space-y-2">
+          {/* Preset chips (shown after first message) */}
+          {hasMessages && (
+            <div
+              className="max-w-2xl mx-auto flex gap-1.5 overflow-x-auto pb-1"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              {PRESETS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => submit(q)}
+                  disabled={isLoading}
+                  className="flex-shrink-0 text-xs px-3 py-1.5 bg-[#F7F8FA] text-[#666666] rounded-full border border-[#E8E8E8] hover:border-[#4A9FD8] hover:text-[#4A9FD8] disabled:opacity-40 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Chat messages */}
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))}
-
-          <div ref={bottomRef} />
-        </div>
-      </main>
-
-      {/* ── Input bar ── */}
-      <div className="bg-white border-t border-slate-200 flex-shrink-0 px-4 py-3 space-y-2">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                submit(input)
-              }
-            }}
-            placeholder="請輸入法規相關問題..."
-            disabled={isLoading}
-            className="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-50 transition"
-          />
-          <button
-            onClick={() => submit(input)}
-            disabled={isLoading || !input.trim()}
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap"
-          >
-            {isLoading ? '⋯' : '送出'}
-          </button>
-        </div>
-
-        {/* Preset chips (compact, shown after first message) */}
-        {hasMessages && (
-          <div className="max-w-3xl mx-auto flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-            {PRESETS.map((q) => (
-              <button
-                key={q}
-                onClick={() => submit(q)}
-                disabled={isLoading}
-                className="flex-shrink-0 text-xs px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 transition-colors"
-              >
-                {q}
-              </button>
-            ))}
+          {/* Input row */}
+          <div className="max-w-2xl mx-auto flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submit(input)
+                }
+              }}
+              placeholder="請輸入法規相關問題..."
+              disabled={isLoading}
+              className="flex-1 bg-[#F7F8FA] border border-[#E8E8E8] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A9FD8] focus:border-transparent disabled:opacity-60 transition text-[#1A1A1A] placeholder:text-[#AAAAAA]"
+            />
+            <button
+              onClick={() => submit(input)}
+              disabled={isLoading || !input.trim()}
+              className="bg-[#1A1A1A] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[#333333] disabled:opacity-40 transition-colors whitespace-nowrap"
+            >
+              {isLoading ? '⋯' : '送出'}
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
@@ -394,7 +503,7 @@ function MessageBubble({ message }: { message: Message }) {
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+        <div className="max-w-[80%] bg-[#1A1A1A] text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed">
           {message.content}
         </div>
       </div>
@@ -402,11 +511,17 @@ function MessageBubble({ message }: { message: Message }) {
   }
 
   return (
-    <div className="flex justify-start">
-      <div className="w-full max-w-[92%] bg-white rounded-2xl rounded-tl-sm border border-slate-200 shadow-sm overflow-hidden">
+    <div className="flex justify-start gap-2.5">
+      {/* Bot avatar */}
+      <div className="w-7 h-7 rounded-lg bg-[#1A1A1A] flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5 select-none">
+        ⚖
+      </div>
+
+      {/* Content card */}
+      <div className="flex-1 min-w-0 max-w-[92%] bg-white rounded-2xl rounded-tl-sm border border-[#E8E8E8] shadow-sm overflow-hidden">
         {/* Status bar */}
         {(isRetrieving || (isStreaming && !message.content)) && (
-          <div className="flex items-center gap-2 px-5 py-3 text-xs text-slate-400">
+          <div className="flex items-center gap-2 px-5 py-3 text-xs text-[#888888]">
             <Spinner />
             <span>
               {isRetrieving
@@ -422,26 +537,24 @@ function MessageBubble({ message }: { message: Message }) {
             {isError ? (
               <p className="text-sm text-red-500">{message.content}</p>
             ) : isDone ? (
-              /* ── Markdown rendered after streaming completes ── */
-              <div className="prose prose-sm prose-slate max-w-none
-                prose-headings:font-semibold prose-headings:text-slate-800
-                prose-p:text-slate-700 prose-p:leading-relaxed
-                prose-li:text-slate-700
-                prose-strong:text-slate-900
-                prose-code:bg-slate-100 prose-code:px-1 prose-code:rounded prose-code:text-sm prose-code:text-slate-800 prose-code:before:content-none prose-code:after:content-none
-                prose-pre:bg-slate-900 prose-pre:text-slate-100
-                prose-blockquote:border-blue-400 prose-blockquote:text-slate-500
-                prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline">
+              <div className="prose prose-sm max-w-none
+                prose-headings:font-semibold prose-headings:text-[#1A1A1A]
+                prose-p:text-[#333333] prose-p:leading-relaxed
+                prose-li:text-[#333333]
+                prose-strong:text-[#1A1A1A]
+                prose-code:bg-[#F7F8FA] prose-code:px-1 prose-code:rounded prose-code:text-sm prose-code:text-[#1A1A1A] prose-code:before:content-none prose-code:after:content-none
+                prose-pre:bg-[#1A1A1A] prose-pre:text-slate-100
+                prose-blockquote:border-[#4A9FD8] prose-blockquote:text-[#666666]
+                prose-a:text-[#4A9FD8] prose-a:no-underline hover:prose-a:underline">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {message.content}
                 </ReactMarkdown>
               </div>
             ) : (
-              /* ── Plain text while streaming (fast, no layout shift) ── */
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm text-[#333333] leading-relaxed whitespace-pre-wrap">
                 {message.content}
                 {isStreaming && (
-                  <span className="inline-block w-0.5 h-[1.1em] bg-blue-500 ml-px animate-pulse align-middle" />
+                  <span className="inline-block w-0.5 h-[1.1em] bg-[#4A9FD8] ml-px animate-pulse align-middle" />
                 )}
               </p>
             )}
@@ -450,13 +563,19 @@ function MessageBubble({ message }: { message: Message }) {
 
         {/* Sources accordion */}
         {isDone && message.sources && message.sources.length > 0 && (
-          <div className="border-t border-slate-100">
+          <div className="border-t border-[#F0F0F0]">
             <button
               onClick={() => setSourcesOpen((v) => !v)}
-              className="w-full px-5 py-2.5 flex items-center justify-between text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+              className="w-full px-5 py-2.5 flex items-center justify-between text-xs text-[#AAAAAA] hover:text-[#666666] hover:bg-[#F7F8FA] transition-colors"
             >
               <span>引用 {message.sources.length} 條法條</span>
-              <span>{sourcesOpen ? '▲' : '▼'}</span>
+              <svg
+                className={`transition-transform ${sourcesOpen ? 'rotate-180' : ''}`}
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5"
+              >
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
             </button>
             {sourcesOpen && (
               <div className="px-5 pb-4 space-y-2">
@@ -481,32 +600,38 @@ function SourceCard({ source, rank }: { source: Source; rank: number }) {
   const similarity = ((1 - source.score) * 100).toFixed(1)
 
   return (
-    <div className="border border-slate-100 rounded-lg overflow-hidden text-xs">
+    <div className="border border-[#F0F0F0] rounded-lg overflow-hidden text-xs">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-slate-50 transition-colors"
+        className="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-[#F7F8FA] transition-colors"
       >
-        <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+        <span className="w-4 h-4 rounded-full bg-[#EBF5FF] text-[#4A9FD8] text-[10px] font-bold flex items-center justify-center flex-shrink-0">
           {rank}
         </span>
-        <span className="font-medium text-slate-700 flex-1 truncate">
+        <span className="font-medium text-[#333333] flex-1 truncate">
           {source.law_name}
           {source.article_number && (
-            <span className="font-normal text-slate-500 ml-1">{source.article_number}</span>
+            <span className="font-normal text-[#666666] ml-1">{source.article_number}</span>
           )}
           {source.chapter && (
-            <span className="font-normal text-slate-400 ml-1 hidden sm:inline">
+            <span className="font-normal text-[#AAAAAA] ml-1 hidden sm:inline">
               {source.chapter}
             </span>
           )}
         </span>
-        <span className="text-slate-300 flex-shrink-0">
-          {similarity}%{' '}
-          <span className="text-[10px]">{open ? '▲' : '▼'}</span>
+        <span className="text-[#CCCCCC] flex-shrink-0 flex items-center gap-1">
+          {similarity}%
+          <svg
+            className={`transition-transform ${open ? 'rotate-180' : ''}`}
+            width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5"
+          >
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
         </span>
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 text-slate-500 leading-relaxed border-t border-slate-50 text-[12px]">
+        <div className="px-3 pb-3 pt-1 text-[#666666] leading-relaxed border-t border-[#F7F8FA] text-[12px]">
           {source.text}
         </div>
       )}
@@ -521,7 +646,7 @@ function SourceCard({ source, rank }: { source: Source; rank: number }) {
 function Spinner() {
   return (
     <svg
-      className="animate-spin h-3 w-3 text-blue-400 flex-shrink-0"
+      className="animate-spin h-3 w-3 text-[#4A9FD8] flex-shrink-0"
       viewBox="0 0 24 24"
       fill="none"
     >
